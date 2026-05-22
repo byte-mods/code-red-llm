@@ -55,6 +55,7 @@ import {
   handleReloadAll,
   handleReloadOne,
 } from './reload/index.js';
+import { handleSimulate } from './simulator/routes.js';
 
 /** Canonical plugin id — referenced by package.json#node-red.plugins. */
 export const PLUGIN_ID = 'no-code-red';
@@ -157,6 +158,11 @@ const plugin: PluginFactory = (RED: RED): void => {
   });
   RED.httpAdmin.post(`${ADMIN_PREFIX}/reload/:name`, (req: Request, res: Response) => {
     void handleReloadOne(req, res);
+  });
+
+  // Simulation (S15). Dry-run a flow without deploying.
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/simulate`, (req: Request, res: Response) => {
+    void handleSimulate(req, res);
   });
 
   RED.log.info(`[${PLUGIN_ID}] plugin loaded; admin routes mounted at ${ADMIN_PREFIX}`);
