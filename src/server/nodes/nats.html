@@ -1,0 +1,20 @@
+<script type="text/javascript">
+  RED.nodes.registerType('nats', {
+    category: 'storage', color: '#c1aaff', paletteLabel: 'nats',
+    defaults: {
+      name: { value: '' }, servers: { value: 'nats://localhost:4222' },
+      subject: { value: '' }, operation: { value: 'publish' },
+    },
+    inputs: 0, outputs: 1, icon: 'feed.svg',
+    label: function () { return this.name || ('nats ' + (this.operation || 'publish') + ' ' + (this.subject || '?')); },
+  });
+</script>
+<script type="text/html" data-template-name="nats">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-servers"><i class="fa fa-server"></i> Servers</label><input type="text" id="node-input-servers" placeholder="nats://h1:4222,nats://h2:4222"></div>
+  <div class="form-row"><label for="node-input-subject"><i class="fa fa-bookmark"></i> Subject</label><input type="text" id="node-input-subject"></div>
+  <div class="form-row"><label for="node-input-operation"><i class="fa fa-cog"></i> Op</label>
+    <select id="node-input-operation"><option value="publish">publish</option><option value="subscribe">subscribe</option></select>
+  </div>
+</script>
+<script type="text/html" data-help-name="nats"><p>NATS pub/sub. subscribe → 0 inputs / 1 output. publish: msg.payload → subject.</p></script>

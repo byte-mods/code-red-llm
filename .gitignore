@@ -1,0 +1,18 @@
+node_modules/
+dist/
+dev-config/
+coverage/
+.DS_Store
+*.log
+.env
+.env.local
+.vitest-cache/
+.eslintcache
+.claude/state/
+
+# write-only audit trail managed by pro-coder; not for VCS
+.history/
+.lens/
+
+# Local generation history (S6)
+.no-code-red/

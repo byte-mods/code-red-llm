@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "sourceMap": false,
+    "declaration": false,
+    "rootDir": "custom-nodes",
+    "outDir": "dist/custom-nodes"
+  },
+  "include": ["custom-nodes/**/*.ts"],
+  "exclude": ["node_modules", "dist", ".history", "test/**/*", "**/*.test.ts"]
+}

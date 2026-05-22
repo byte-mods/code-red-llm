@@ -1,0 +1,23 @@
+<script type="text/javascript">
+  RED.nodes.registerType('metronome', {
+    category: 'function', color: '#b8e6f0', paletteLabel: 'metronome',
+    defaults: {
+      name: { value: '' }, ratePerSec: { value: 10 }, mode: { value: 'drop' }, queueCap: { value: 1000 },
+    },
+    inputs: 1, outputs: 1, icon: 'function.svg',
+    label: function () { return this.name || ('rate ' + (this.ratePerSec || 10) + '/s'); },
+  });
+</script>
+<script type="text/html" data-template-name="metronome">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-ratePerSec"><i class="fa fa-tachometer"></i> Rate /s</label><input type="number" id="node-input-ratePerSec"></div>
+  <div class="form-row"><label for="node-input-mode"><i class="fa fa-cog"></i> Mode</label>
+    <select id="node-input-mode">
+      <option value="drop">drop (overflow rejected)</option>
+      <option value="queue">queue (FIFO release)</option>
+      <option value="tick">tick (one per period from queue)</option>
+    </select>
+  </div>
+  <div class="form-row"><label for="node-input-queueCap"><i class="fa fa-database"></i> Queue cap</label><input type="number" id="node-input-queueCap"></div>
+</script>
+<script type="text/html" data-help-name="metronome"><p>Rate-limit / pace a stream. drop = throttle by dropping; queue/tick = buffer and release at rate.</p></script>

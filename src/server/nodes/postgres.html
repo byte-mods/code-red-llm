@@ -1,0 +1,35 @@
+<script type="text/javascript">
+  RED.nodes.registerType('postgres', {
+    category: 'storage',
+    color: '#7eb6e8',
+    paletteLabel: 'postgres',
+    defaults: {
+      name: { value: '' },
+      connectionString: { value: '', required: true },
+      query: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'db.svg',
+    label: function () { return this.name || 'postgres'; },
+  });
+</script>
+<script type="text/html" data-template-name="postgres">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="postgres">
+  </div>
+  <div class="form-row">
+    <label for="node-input-connectionString"><i class="fa fa-link"></i> URL</label>
+    <input type="text" id="node-input-connectionString" placeholder="postgres://user:pw@host:5432/db">
+  </div>
+  <div class="form-row">
+    <label for="node-input-query" style="vertical-align: top"><i class="fa fa-database"></i> Default SQL</label>
+    <textarea id="node-input-query" rows="4" style="width:70%" placeholder="SELECT * FROM ..."></textarea>
+  </div>
+</script>
+<script type="text/html" data-help-name="postgres">
+  <p>Runs a SQL query against PostgreSQL.</p>
+  <p>Inputs: <code>msg.query</code> overrides the configured query; <code>msg.params</code> binds <code>$1</code>, <code>$2</code> …</p>
+  <p>Output: <code>msg.payload = { rows, rowCount, fields }</code></p>
+</script>

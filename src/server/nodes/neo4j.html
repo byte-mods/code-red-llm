@@ -1,0 +1,23 @@
+<script type="text/javascript">
+  RED.nodes.registerType('neo4j', {
+    category: 'storage',
+    color: '#c5d1e6',
+    paletteLabel: 'neo4j',
+    defaults: {
+      name: { value: '' }, url: { value: 'bolt://localhost:7687' },
+      user: { value: 'neo4j' }, password: { value: 'neo4j' },
+      database: { value: '' }, query: { value: '' },
+    },
+    inputs: 1, outputs: 1, icon: 'db.svg',
+    label: function () { return this.name || 'neo4j'; },
+  });
+</script>
+<script type="text/html" data-template-name="neo4j">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-url"><i class="fa fa-link"></i> URL</label><input type="text" id="node-input-url"></div>
+  <div class="form-row"><label for="node-input-user"><i class="fa fa-user"></i> User</label><input type="text" id="node-input-user"></div>
+  <div class="form-row"><label for="node-input-password"><i class="fa fa-lock"></i> Pass</label><input type="password" id="node-input-password"></div>
+  <div class="form-row"><label for="node-input-database"><i class="fa fa-database"></i> Database</label><input type="text" id="node-input-database"></div>
+  <div class="form-row"><label for="node-input-query" style="vertical-align: top"><i class="fa fa-code"></i> Default Cypher</label><textarea id="node-input-query" rows="4" style="width:70%"></textarea></div>
+</script>
+<script type="text/html" data-help-name="neo4j"><p>Cypher queries against Neo4j. <code>msg.query</code> overrides; <code>msg.params</code> object binds parameters.</p></script>

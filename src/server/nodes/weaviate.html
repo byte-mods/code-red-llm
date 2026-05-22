@@ -1,0 +1,21 @@
+<script type="text/javascript">
+  RED.nodes.registerType('weaviate', {
+    category: 'storage', color: '#a8e6cf', paletteLabel: 'weaviate',
+    defaults: {
+      name: { value: '' }, host: { value: 'localhost:8080' },
+      apiKey: { value: '' }, className: { value: '' }, operation: { value: 'search' },
+    },
+    inputs: 1, outputs: 1, icon: 'db.svg',
+    label: function () { return this.name || ('weaviate ' + (this.operation || 'search')); },
+  });
+</script>
+<script type="text/html" data-template-name="weaviate">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-host"><i class="fa fa-server"></i> Host</label><input type="text" id="node-input-host" placeholder="localhost:8080"></div>
+  <div class="form-row"><label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label><input type="password" id="node-input-apiKey"></div>
+  <div class="form-row"><label for="node-input-className"><i class="fa fa-folder"></i> Class</label><input type="text" id="node-input-className"></div>
+  <div class="form-row"><label for="node-input-operation"><i class="fa fa-cog"></i> Op</label>
+    <select id="node-input-operation"><option value="search">search</option><option value="insert">insert</option><option value="delete">delete</option></select>
+  </div>
+</script>
+<script type="text/html" data-help-name="weaviate"><p>Weaviate vector DB. msg.vector for search; msg.props + msg.vector for insert; msg.id for delete.</p></script>

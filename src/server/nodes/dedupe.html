@@ -1,0 +1,18 @@
+<script type="text/javascript">
+  RED.nodes.registerType('dedupe', {
+    category: 'function', color: '#f0d8b8', paletteLabel: 'dedupe',
+    defaults: {
+      name: { value: '' }, keyField: { value: '' },
+      ttlMs: { value: 60000 }, maxSize: { value: 10000 },
+    },
+    inputs: 1, outputs: 1, icon: 'function.svg',
+    label: function () { return this.name || ('dedupe ' + (this.keyField || 'payload')); },
+  });
+</script>
+<script type="text/html" data-template-name="dedupe">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-keyField"><i class="fa fa-key"></i> Key field</label><input type="text" id="node-input-keyField" placeholder="(blank → msg.payload)"></div>
+  <div class="form-row"><label for="node-input-ttlMs"><i class="fa fa-clock-o"></i> TTL ms</label><input type="number" id="node-input-ttlMs"></div>
+  <div class="form-row"><label for="node-input-maxSize"><i class="fa fa-database"></i> Max cache</label><input type="number" id="node-input-maxSize"></div>
+</script>
+<script type="text/html" data-help-name="dedupe"><p>Drop duplicate messages by key within a TTL window. LRU-evicted past max cache.</p></script>

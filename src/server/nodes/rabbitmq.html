@@ -1,0 +1,22 @@
+<script type="text/javascript">
+  RED.nodes.registerType('rabbitmq', {
+    category: 'storage', color: '#ffbcaa', paletteLabel: 'rabbitmq',
+    defaults: {
+      name: { value: '' }, url: { value: 'amqp://localhost' },
+      exchange: { value: '' }, queue: { value: '' }, operation: { value: 'publish' },
+    },
+    inputs: 0, outputs: 1, icon: 'feed.svg',
+    label: function () { return this.name || ('rmq ' + (this.operation || 'publish') + ' ' + (this.queue || '?')); },
+  });
+</script>
+<script type="text/html" data-template-name="rabbitmq">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-url"><i class="fa fa-link"></i> URL</label><input type="text" id="node-input-url" placeholder="amqp://user:pw@host:5672"></div>
+  <div class="form-row"><label for="node-input-exchange"><i class="fa fa-share-alt"></i> Exchange</label><input type="text" id="node-input-exchange"></div>
+  <div class="form-row"><label for="node-input-queue"><i class="fa fa-bookmark"></i> Queue</label><input type="text" id="node-input-queue"></div>
+  <div class="form-row"><label for="node-input-operation"><i class="fa fa-cog"></i> Op</label>
+    <select id="node-input-operation"><option value="publish">publish</option><option value="consume">consume</option></select>
+  </div>
+  <p style="font-size:11px;color:#888">consume → 0 inputs / 1 output (source node) — auto-acks each message.</p>
+</script>
+<script type="text/html" data-help-name="rabbitmq"><p>AMQP 0-9-1 connector. publish: msg.payload → queue/exchange. consume: emits one msg per delivery.</p></script>

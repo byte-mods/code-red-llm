@@ -1,0 +1,33 @@
+<script type="text/javascript">
+  RED.nodes.registerType('redis', {
+    category: 'storage',
+    color: '#f5b3a8',
+    paletteLabel: 'redis',
+    defaults: {
+      name: { value: '' },
+      url: { value: 'redis://localhost:6379' },
+      command: { value: 'GET' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'db.svg',
+    label: function () { return this.name || ('redis ' + (this.command || 'GET')); },
+  });
+</script>
+<script type="text/html" data-template-name="redis">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="redis">
+  </div>
+  <div class="form-row">
+    <label for="node-input-url"><i class="fa fa-link"></i> URL</label>
+    <input type="text" id="node-input-url" placeholder="redis://localhost:6379">
+  </div>
+  <div class="form-row">
+    <label for="node-input-command"><i class="fa fa-terminal"></i> Default cmd</label>
+    <input type="text" id="node-input-command" placeholder="GET">
+  </div>
+</script>
+<script type="text/html" data-help-name="redis">
+  <p>Runs an arbitrary Redis command. Override per-message via <code>msg.command</code> and <code>msg.args</code> (array).</p>
+</script>

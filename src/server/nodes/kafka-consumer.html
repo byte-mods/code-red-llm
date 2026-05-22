@@ -1,0 +1,48 @@
+<script type="text/javascript">
+  RED.nodes.registerType('kafka-consumer', {
+    category: 'storage',
+    color: '#bdbdbd',
+    paletteLabel: 'kafka in',
+    defaults: {
+      name: { value: '' },
+      brokers: { value: 'localhost:9092' },
+      clientId: { value: 'no-code-red-consumer' },
+      groupId: { value: '', required: true },
+      topic: { value: '', required: true },
+      fromBeginning: { value: false },
+    },
+    inputs: 0,
+    outputs: 1,
+    icon: 'feed.svg',
+    label: function () { return this.name || ('kafka ← ' + (this.topic || '?')); },
+  });
+</script>
+<script type="text/html" data-template-name="kafka-consumer">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="kafka-consumer">
+  </div>
+  <div class="form-row">
+    <label for="node-input-brokers"><i class="fa fa-server"></i> Brokers</label>
+    <input type="text" id="node-input-brokers" placeholder="host:9092,host2:9092">
+  </div>
+  <div class="form-row">
+    <label for="node-input-clientId"><i class="fa fa-id-badge"></i> Client id</label>
+    <input type="text" id="node-input-clientId">
+  </div>
+  <div class="form-row">
+    <label for="node-input-groupId"><i class="fa fa-users"></i> Group id</label>
+    <input type="text" id="node-input-groupId">
+  </div>
+  <div class="form-row">
+    <label for="node-input-topic"><i class="fa fa-bookmark"></i> Topic</label>
+    <input type="text" id="node-input-topic">
+  </div>
+  <div class="form-row">
+    <label for="node-input-fromBeginning"><i class="fa fa-step-backward"></i> From beginning</label>
+    <input type="checkbox" id="node-input-fromBeginning" style="display:inline-block; width:20px; vertical-align:baseline;">
+  </div>
+</script>
+<script type="text/html" data-help-name="kafka-consumer">
+  <p>Subscribes at deploy time and emits one Node-RED message per Kafka record. <code>msg.payload</code> is the UTF-8 decoded value; the raw Buffer is in <code>msg.value</code>.</p>
+</script>

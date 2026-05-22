@@ -1,0 +1,25 @@
+<script type="text/javascript">
+  RED.nodes.registerType('influxdb', {
+    category: 'storage',
+    color: '#bfa8e6',
+    paletteLabel: 'influxdb',
+    defaults: {
+      name: { value: '' }, url: { value: 'http://localhost:8086' },
+      token: { value: '' }, org: { value: '' }, bucket: { value: '' },
+      operation: { value: 'write' },
+    },
+    inputs: 1, outputs: 1, icon: 'db.svg',
+    label: function () { return this.name || ('influx ' + (this.operation || 'write')); },
+  });
+</script>
+<script type="text/html" data-template-name="influxdb">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-url"><i class="fa fa-link"></i> URL</label><input type="text" id="node-input-url"></div>
+  <div class="form-row"><label for="node-input-token"><i class="fa fa-key"></i> Token</label><input type="password" id="node-input-token"></div>
+  <div class="form-row"><label for="node-input-org"><i class="fa fa-users"></i> Org</label><input type="text" id="node-input-org"></div>
+  <div class="form-row"><label for="node-input-bucket"><i class="fa fa-folder"></i> Bucket</label><input type="text" id="node-input-bucket"></div>
+  <div class="form-row"><label for="node-input-operation"><i class="fa fa-cog"></i> Op</label>
+    <select id="node-input-operation"><option value="write">write</option><option value="query">query</option></select>
+  </div>
+</script>
+<script type="text/html" data-help-name="influxdb"><p>InfluxDB time-series. Write: msg.measurement + msg.fields + msg.tags. Query: msg.query (Flux).</p></script>

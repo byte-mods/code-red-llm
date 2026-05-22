@@ -1,0 +1,17 @@
+<script type="text/javascript">
+  RED.nodes.registerType('stream-join', {
+    category: 'function', color: '#c1f0c1', paletteLabel: 'stream-join',
+    defaults: {
+      name: { value: '' }, keyField: { value: 'key' }, windowMs: { value: 30000 },
+    },
+    inputs: 1, outputs: 1, icon: 'function.svg',
+    label: function () { return this.name || ('join on ' + (this.keyField || 'key')); },
+  });
+</script>
+<script type="text/html" data-template-name="stream-join">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-keyField"><i class="fa fa-key"></i> Key field</label><input type="text" id="node-input-keyField"></div>
+  <div class="form-row"><label for="node-input-windowMs"><i class="fa fa-clock-o"></i> Window ms</label><input type="number" id="node-input-windowMs"></div>
+  <p style="font-size:11px;color:#888">Set <code>msg.stream='left'</code> or <code>msg.stream='right'</code> on inputs to identify the side. Emits <code>msg.payload = {left, right}</code> on match.</p>
+</script>
+<script type="text/html" data-help-name="stream-join"><p>Inner equi-join of two logical streams within a time window.</p></script>

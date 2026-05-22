@@ -1,0 +1,45 @@
+<script type="text/javascript">
+  RED.nodes.registerType('llm', {
+    category: 'function',
+    color: '#f3b08a',
+    paletteLabel: 'llm',
+    defaults: {
+      name: { value: '' },
+      apiKey: { value: '' },
+      model: { value: 'claude-haiku-4-5' },
+      system: { value: '' },
+      maxTokens: { value: 1024 },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'function.svg',
+    label: function () { return this.name || ('llm ' + (this.model || '')); },
+  });
+</script>
+<script type="text/html" data-template-name="llm">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="llm">
+  </div>
+  <div class="form-row">
+    <label for="node-input-apiKey"><i class="fa fa-key"></i> API key</label>
+    <input type="password" id="node-input-apiKey" placeholder="(or ANTHROPIC_API_KEY env)">
+  </div>
+  <div class="form-row">
+    <label for="node-input-model"><i class="fa fa-cog"></i> Model</label>
+    <input type="text" id="node-input-model" placeholder="claude-haiku-4-5">
+  </div>
+  <div class="form-row">
+    <label for="node-input-system" style="vertical-align: top"><i class="fa fa-pencil"></i> System</label>
+    <textarea id="node-input-system" rows="4" style="width:70%" placeholder="optional system prompt"></textarea>
+  </div>
+  <div class="form-row">
+    <label for="node-input-maxTokens"><i class="fa fa-hashtag"></i> Max tokens</label>
+    <input type="number" id="node-input-maxTokens" placeholder="1024">
+  </div>
+</script>
+<script type="text/html" data-help-name="llm">
+  <p>Calls Claude with <code>msg.prompt</code> and returns the response text in <code>msg.payload</code>.</p>
+  <p>Per-message override: <code>msg.system</code> for the system prompt.</p>
+  <p>Output: <code>msg.payload = { text, usage }</code> — wire a <b>debug</b> node after this to see every call's response and token usage live in the editor's debug sidebar.</p>
+</script>

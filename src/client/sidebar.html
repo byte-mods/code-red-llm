@@ -1,0 +1,671 @@
+<!--
+  no_code_red sidebar — S5 + chat refinement window.
+
+  Two stacked panels:
+    1. "Generate"   — prompt → SSE → RED.nodes.add (S5)
+    2. "Chat"       — follow-up refinement against the current flow.
+                       Each message includes the active tab's JSON so
+                       Claude has the current flow as context, and the
+                       reply may emit `<NODE>{…}</NODE>` blocks that
+                       are added/updated on the canvas.
+
+  Implementation note: the chat uses the same `/no-code-red/generate`
+  SSE endpoint — we just prefix the prompt with the current flow JSON
+  and ask Claude to revise it. No new backend route required.
+-->
+<script type="text/javascript">
+  (function () {
+    'use strict';
+
+    var TAB_ID = 'no-code-red-sidebar';
+    if (typeof RED === 'undefined' || !RED.sidebar) return;
+
+    var activeEs = null;
+
+    function activeFlowId() {
+      try {
+        if (RED.workspaces && typeof RED.workspaces.active === 'function') {
+          return RED.workspaces.active() || null;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function adminBase() {
+      var base = (RED.settings && RED.settings.httpAdminRoot) || '/';
+      if (base.charAt(base.length - 1) !== '/') base += '/';
+      return base;
+    }
+
+    function addNodeToCanvas(n, fallbackFlowId) {
+      var flat = {
+        id: n.id, type: n.type, x: n.x, y: n.y,
+        z: n.z || fallbackFlowId || activeFlowId(),
+        wires: n.wires || [],
+      };
+      if (n.name) flat.name = n.name;
+      if (n.extras && typeof n.extras === 'object') {
+        for (var k in n.extras) {
+          if (Object.prototype.hasOwnProperty.call(n.extras, k)) flat[k] = n.extras[k];
+        }
+      }
+      // If a node with the same id already exists, remove it first so
+      // chat-driven refinements can "replace" a node by re-emitting it.
+      var existing = RED.nodes.node(n.id);
+      if (existing) {
+        try { RED.nodes.remove(n.id); } catch (_) {}
+      }
+      RED.nodes.add(flat);
+      try { RED.nodes.dirty(true); } catch (_) {}
+      try { RED.view.redraw(); } catch (_) {}
+    }
+
+    /**
+     * Auto-layout engine.
+     *
+     * Given an array of nodes, compute a topological column layout and
+     * return a map of id → {x, y}.  Pure w.r.t. the input array — it does
+     * not mutate the nodes.
+     */
+    function layoutNodes(nodes, opts) {
+      opts = opts || {};
+      var COL_W = opts.columnWidth || 220;
+      var ROW_H = opts.rowHeight || 80;
+      var MARGIN_X = opts.marginX || 120;
+      var MARGIN_Y = opts.marginY || 80;
+
+      var byId = {};
+      nodes.forEach(function(n) { byId[n.id] = n; });
+
+      // in-degree and incoming-edge bookkeeping.
+      var inDeg = {};
+      var incoming = {};
+      nodes.forEach(function(n) { inDeg[n.id] = 0; incoming[n.id] = []; });
+      nodes.forEach(function(n) {
+        var wires = Array.isArray(n.wires) ? n.wires : [];
+        wires.forEach(function(port) {
+          if (!Array.isArray(port)) return;
+          port.forEach(function(tid) {
+            if (byId[tid]) {
+              inDeg[tid] = (inDeg[tid] || 0) + 1;
+              incoming[tid].push(n.id);
+            }
+          });
+        });
+      });
+
+      // BFS level assignment (longest path from any source).
+      var level = {};
+      var q = [];
+      nodes.forEach(function(n) {
+        if (inDeg[n.id] === 0) {
+          level[n.id] = 0;
+          q.push(n.id);
+        }
+      });
+      var qi = 0;
+      while (qi < q.length) {
+        var cur = q[qi++];
+        var node = byId[cur];
+        if (!node) continue;
+        var wires = Array.isArray(node.wires) ? node.wires : [];
+        wires.forEach(function(port) {
+          if (!Array.isArray(port)) return;
+          port.forEach(function(tid) {
+            if (!byId[tid]) return;
+            var nl = (level[cur] || 0) + 1;
+            if (nl > (level[tid] || 0)) level[tid] = nl;
+            inDeg[tid]--;
+            if (inDeg[tid] === 0) q.push(tid);
+          });
+        });
+      }
+
+      // Cycles / unreachable nodes default to level 0.
+      var maxLvl = 0;
+      nodes.forEach(function(n) {
+        if (level[n.id] === undefined) level[n.id] = 0;
+        if (level[n.id] > maxLvl) maxLvl = level[n.id];
+      });
+
+      // Group by level.
+      var levels = [];
+      for (var i = 0; i <= maxLvl; i++) levels.push([]);
+      nodes.forEach(function(n) { levels[level[n.id]].push(n.id); });
+
+      // Sort within level by number of incoming edges (more first).
+      levels.forEach(function(lvl) {
+        lvl.sort(function(a, b) { return (incoming[b] || []).length - (incoming[a] || []).length; });
+      });
+
+      var pos = {};
+      levels.forEach(function(lvl, li) {
+        lvl.forEach(function(id, idx) {
+          pos[id] = { x: MARGIN_X + li * COL_W, y: MARGIN_Y + idx * ROW_H };
+        });
+      });
+      return pos;
+    }
+
+    /**
+     * Apply layout to every node on the active flow tab.
+     */
+    function tidyActiveFlow() {
+      var flowId = activeFlowId();
+      if (!flowId) return;
+      var nodes = [];
+      RED.nodes.eachNode(function(n) { if (n.z === flowId) nodes.push(n); });
+      if (nodes.length === 0) return;
+      var positions = layoutNodes(nodes);
+      nodes.forEach(function(n) {
+        var p = positions[n.id];
+        if (p) { n.x = p.x; n.y = p.y; }
+      });
+      try { RED.nodes.dirty(true); } catch (_) {}
+      try { RED.view.redraw(true); } catch (_) {}
+    }
+
+    /**
+     * Open an EventSource against /no-code-red/generate?prompt=… and pipe
+     * frames to the provided handlers. Returns the EventSource so the
+     * caller can `.close()`.
+     */
+    function startStream(prompt, handlers) {
+      if (activeEs) { try { activeEs.close(); } catch (_) {} activeEs = null; }
+      var flowId = activeFlowId();
+      var qs = '?prompt=' + encodeURIComponent(prompt);
+      if (flowId) qs += '&flowId=' + encodeURIComponent(flowId);
+      var url = adminBase() + 'no-code-red/generate' + qs;
+      var es = new EventSource(url);
+      activeEs = es;
+      es.addEventListener('meta',  function (ev) { handlers.meta && handlers.meta(JSON.parse(ev.data)); });
+      es.addEventListener('node',  function (ev) { handlers.node && handlers.node(JSON.parse(ev.data), flowId); });
+      es.addEventListener('error', function (ev) {
+        if (ev && ev.data) { try { handlers.error && handlers.error(JSON.parse(ev.data)); } catch (e) {} }
+        else { handlers.networkError && handlers.networkError(); }
+      });
+      es.addEventListener('done',  function (ev) {
+        try { handlers.done && handlers.done(JSON.parse(ev.data)); } catch (e) {}
+        try { es.close(); } catch (_) {}
+        activeEs = null;
+      });
+      return es;
+    }
+
+    // ----------------------- Generate panel -----------------------
+
+    function buildGeneratePanel() {
+      var $panel = $('<div>').css({ padding: '12px', 'font-family': 'sans-serif', 'font-size': '13px' });
+      $panel.append('<h4 style="margin:0 0 4px 0">Generate</h4>');
+      $panel.append('<p style="color:#666;line-height:1.45;margin-bottom:8px">Describe a flow in plain English. Nodes stream onto the canvas as Claude emits them.</p>');
+      var $textarea = $('<textarea>')
+        .attr('placeholder', 'e.g. poll an HTTP API every 30 s and post results to Slack')
+        .css({ width: '100%', height: '90px', padding: '6px', 'box-sizing': 'border-box', 'font-family': 'monospace', 'font-size': '12px', resize: 'vertical', border: '1px solid #ccc', 'border-radius': '4px' });
+      $panel.append($textarea);
+      var $row = $('<div>').css({ display: 'flex', gap: '6px', 'margin-top': '6px' });
+      var $generate = $('<button>').text('Generate').addClass('red-ui-button').css({ flex: '1', padding: '6px 10px' });
+      var $cancel = $('<button>').text('Cancel').addClass('red-ui-button').css({ flex: '1', padding: '6px 10px' }).prop('disabled', true);
+      $row.append($generate, $cancel);
+      $panel.append($row);
+      var $status = $('<div>').css({ 'margin-top': '8px', padding: '6px', background: '#f5f5f5', border: '1px solid #e5e5e5', 'border-radius': '4px', 'min-height': '28px', 'font-size': '12px', color: '#444' }).text('Idle.');
+      var $count = $('<div>').css({ 'margin-top': '4px', 'font-size': '11px', color: '#888' }).text('Nodes added: 0');
+      var $tidy = $('<button>').text('Tidy layout').addClass('red-ui-button').css({ 'margin-top': '6px', padding: '4px 10px', 'font-size': '12px' });
+      $tidy.on('click', tidyActiveFlow);
+      $panel.append($status, $count, $tidy);
+
+      $generate.on('click', function () {
+        var prompt = ($textarea.val() || '').trim();
+        if (!prompt) { $status.text('Enter a prompt first.').css('color', '#c33'); return; }
+        $status.text('Starting…').css('color', '#444');
+        $count.text('Nodes added: 0');
+        $generate.prop('disabled', true);
+        $cancel.prop('disabled', false);
+        var added = 0;
+        var generatedNodes = [];
+        startStream(prompt, {
+          meta:  function (m) { $status.text('Generating… (' + (m.model || 'default') + ')').css('color', '#444'); },
+          node:  function (n, fid) { addNodeToCanvas(n, fid); generatedNodes.push(n); added++; $count.text('Nodes added: ' + added); },
+          error: function (e) { $status.text('Stream error: ' + e.reason + ' — ' + (e.detail || '')).css('color', '#c33'); },
+          networkError: function () { $status.text('Connection lost.').css('color', '#c33'); },
+          done:  function (d) {
+            if (!d.wasCancelled && generatedNodes.length > 0) {
+              var issues = validateStaging(generatedNodes);
+              if (issues.length > 0) {
+                $status.text('Done. Nodes added: ' + added + '. Warning: ' + issues.join('; ')).css('color', '#a60');
+              } else {
+                $status.text('Done. exitCode=' + d.exitCode + '. Nodes added: ' + added + '.').css('color', '#080');
+              }
+              // Auto-layout the newly generated nodes so they don't overlap.
+              var positions = layoutNodes(generatedNodes);
+              generatedNodes.forEach(function(n) {
+                var p = positions[n.id];
+                if (p) { n.x = p.x; n.y = p.y; }
+                var node = RED.nodes.node(n.id);
+                if (node) { node.x = n.x; node.y = n.y; }
+              });
+              try { RED.nodes.dirty(true); } catch (_) {}
+              try { RED.view.redraw(true); } catch (_) {}
+            } else {
+              $status.text(d.wasCancelled ? ('Cancelled (' + (d.cancelReason || 'user') + ').') : ('Done. exitCode=' + d.exitCode + '. Nodes added: ' + added + '.')).css('color', d.wasCancelled ? '#a60' : '#080');
+            }
+            $generate.prop('disabled', false);
+            $cancel.prop('disabled', true);
+          },
+        });
+      });
+      $cancel.on('click', function () {
+        if (activeEs) { try { activeEs.close(); } catch (_) {} activeEs = null; }
+        $status.text('Cancelled.').css('color', '#a60');
+        $generate.prop('disabled', false);
+        $cancel.prop('disabled', true);
+      });
+      return $panel;
+    }
+
+    // ----------------------- Chat panel -----------------------
+
+    function exportCurrentFlow() {
+      // Export only the nodes on the active tab so the prompt stays small.
+      var flowId = activeFlowId();
+      if (!flowId) return [];
+      var out = [];
+      RED.nodes.eachNode(function (n) { if (n.z === flowId) out.push(n); });
+      return out;
+    }
+
+    /**
+     * Lightweight client-side validation for a staging batch.
+     * Returns an array of human-readable issue strings.
+     */
+    function validateStaging(nodes) {
+      var issues = [];
+      var ids = {};
+      var allIds = {};
+      nodes.forEach(function(n) {
+        if (n && typeof n.id === 'string') allIds[n.id] = true;
+      });
+      nodes.forEach(function(n, i) {
+        if (n === null || typeof n !== 'object') {
+          issues.push('entry ' + i + ' is not an object');
+          return;
+        }
+        if (typeof n.id !== 'string') {
+          issues.push('entry ' + i + ' has no string id');
+          return;
+        }
+        if (ids[n.id]) issues.push('duplicate id "' + n.id + '"');
+        ids[n.id] = true;
+        var wires = Array.isArray(n.wires) ? n.wires : [];
+        if (!Array.isArray(n.wires) && n.wires !== undefined) issues.push('node "' + n.id + '" wires is not an array');
+        wires.forEach(function(port, pi) {
+          if (!Array.isArray(port)) {
+            issues.push('node "' + n.id + '" port ' + pi + ' is not an array');
+            return;
+          }
+          port.forEach(function(tid) {
+            if (tid === n.id) issues.push('self-wire on "' + n.id + '" port ' + pi);
+            if (!allIds[tid] && !RED.nodes.node(tid)) issues.push('dangling wire "' + n.id + '" → "' + tid + '"');
+          });
+        });
+      });
+      return issues;
+    }
+
+    function buildChatPanel() {
+      var $panel = $('<div>').css({ padding: '12px', 'font-family': 'sans-serif', 'font-size': '13px', 'border-top': '1px solid #ddd', 'margin-top': '12px' });
+      $panel.append('<h4 style="margin:0 0 4px 0">Chat</h4>');
+      $panel.append('<p style="color:#666;line-height:1.45;margin-bottom:8px">Refine the current flow. Each message includes the active tab’s nodes as context; review staged changes before applying them.</p>');
+
+      var $messages = $('<div>').css({ border: '1px solid #e5e5e5', 'border-radius': '4px', padding: '6px', height: '180px', 'overflow-y': 'auto', 'background': '#fafafa', 'font-size': '12px' });
+      $panel.append($messages);
+
+      var $textarea = $('<textarea>')
+        .attr('placeholder', 'e.g. add error handling and a retry, then log to debug')
+        .css({ width: '100%', height: '60px', padding: '6px', 'box-sizing': 'border-box', 'font-family': 'monospace', 'font-size': '12px', resize: 'vertical', border: '1px solid #ccc', 'border-radius': '4px', 'margin-top': '6px' });
+      $panel.append($textarea);
+
+      var $row = $('<div>').css({ display: 'flex', gap: '6px', 'margin-top': '6px' });
+      var $send = $('<button>').text('Send').addClass('red-ui-button').css({ flex: '1', padding: '6px 10px' });
+      $row.append($send);
+      $panel.append($row);
+
+      // Staging area
+      var $staging = $('<div>').css({ border: '1px solid #e5e5e5', 'border-radius': '4px', padding: '6px', 'margin-top': '8px', background: '#fff', 'font-size': '12px', display: 'none' });
+      $panel.append($staging);
+      var stagedNodes = [];
+
+      function renderStaging() {
+        $staging.empty();
+        if (stagedNodes.length === 0) { $staging.hide(); return; }
+        $staging.show();
+        var issues = validateStaging(stagedNodes);
+        if (issues.length > 0) {
+          var $warn = $('<div>').css({ color: '#a60', 'margin-bottom': '4px' }).text('\u26a0 ' + issues.length + ' issue(s): ' + issues.join('; '));
+          $staging.append($warn);
+        }
+        var $list = $('<div>').css({ 'max-height': '120px', 'overflow-y': 'auto' });
+        stagedNodes.forEach(function(n, idx) {
+          if (n === null || typeof n !== 'object' || typeof n.id !== 'string') {
+            var $item = $('<div>').css({ padding: '2px 0', color: '#c33' }).text('Invalid entry #' + idx);
+            $list.append($item);
+            return;
+          }
+          var existing = RED.nodes.node(n.id);
+          var label = (existing ? 'Update' : 'New') + ': ' + (n.name || n.type || 'unknown') + ' (' + n.id.slice(0, 6) + ')';
+          var $item = $('<div>').css({ padding: '2px 0', color: existing ? '#06b' : '#080' }).text(label);
+          $list.append($item);
+        });
+        $staging.append($list);
+        var $btnRow = $('<div>').css({ display: 'flex', gap: '6px', 'margin-top': '6px' });
+        var $apply = $('<button>').text('Apply (' + stagedNodes.length + ')').addClass('red-ui-button').css({ flex: '1', padding: '4px 8px', 'font-size': '12px' });
+        var $clear = $('<button>').text('Clear').addClass('red-ui-button').css({ padding: '4px 8px', 'font-size': '12px' });
+        $apply.on('click', function () {
+          var valid = stagedNodes.filter(function(n) {
+            return n !== null && typeof n === 'object' && typeof n.id === 'string';
+          });
+          var positions = layoutNodes(valid);
+          valid.forEach(function(n) {
+            var p = positions[n.id];
+            if (p) { n.x = p.x; n.y = p.y; }
+            addNodeToCanvas(n, activeFlowId());
+          });
+          stagedNodes = [];
+          renderStaging();
+        });
+        $clear.on('click', function () { stagedNodes = []; renderStaging(); });
+        $btnRow.append($apply, $clear);
+        $staging.append($btnRow);
+      }
+
+      function appendMessage(role, text) {
+        var $m = $('<div>').css({ 'margin-bottom': '6px' });
+        var $r = $('<span>').css({ 'font-weight': 'bold', color: role === 'you' ? '#06b' : '#080' }).text(role + ': ');
+        $m.append($r);
+        $m.append($('<span>').text(text));
+        $messages.append($m);
+        $messages.scrollTop($messages[0].scrollHeight);
+        return $m;
+      }
+
+      $send.on('click', function () {
+        var userText = ($textarea.val() || '').trim();
+        if (!userText) return;
+        appendMessage('you', userText);
+        $textarea.val('');
+        $send.prop('disabled', true);
+
+        var flowJson = JSON.stringify(exportCurrentFlow(), null, 0);
+        // Compose a single combined prompt — the server-side prompt
+        // template already teaches Claude the sentinel contract, so
+        // we just prepend the current flow + the user's refinement.
+        var combined =
+          'Here is the current flow on the active Node-RED tab as JSON:\n' +
+          flowJson + '\n\n' +
+          'The user wants to refine this flow. Their instruction:\n' +
+          userText + '\n\n' +
+          'Re-emit only the nodes that change or are new — keep existing node ids ' +
+          'where you mean to update in place. Brief prose between sentinel blocks is welcome.';
+
+        stagedNodes = [];
+        renderStaging();
+        var $reply = appendMessage('claude', '…');
+        var proseSoFar = '';
+        startStream(combined, {
+          meta:  function () { $reply.find('span').last().text('thinking…'); },
+          node:  function (n, fid) { stagedNodes.push(n); renderStaging(); },
+          error: function (e) { proseSoFar += '[error: ' + e.reason + '] '; $reply.find('span').last().text(proseSoFar); },
+          done:  function (d) {
+            var summary = d.wasCancelled
+              ? 'cancelled.'
+              : ('staged ' + stagedNodes.length + ' node(s).');
+            $reply.find('span').last().text(summary);
+            $send.prop('disabled', false);
+          },
+        });
+      });
+
+      return $panel;
+    }
+
+    // ----------------------- Custom Nodes panel -----------------------
+
+    function buildCustomNodesPanel() {
+      var $panel = $('<div>').css({ padding: '12px', 'font-family': 'sans-serif', 'font-size': '13px', 'border-top': '1px solid #ddd', 'margin-top': '12px' });
+      $panel.append('<h4 style="margin:0 0 4px 0">Custom Nodes</h4>');
+      $panel.append('<p style="color:#666;line-height:1.45;margin-bottom:8px">Author your own connector — Claude generates the TypeScript + HTML form from a description; the new node hot-reloads into the runtime (no restart needed).</p>');
+
+      // Reload-all button — calls POST /reload, which dynamic-imports
+      // every registered node module with cache busting and re-calls
+      // registerType. Existing flow instances pick up the new code on
+      // their next deploy.
+      var $reloadRow = $('<div>').css({ display: 'flex', gap: '6px', 'margin-bottom': '8px', 'align-items': 'center' });
+      var $reloadAll = $('<button>').text('↻ Reload all').addClass('red-ui-button').css({ padding: '4px 10px' });
+      var $reloadStatus = $('<span>').css({ 'font-size': '11px', color: '#666' });
+      $reloadAll.on('click', function () {
+        $reloadAll.prop('disabled', true);
+        $reloadStatus.text('reloading…').css('color', '#444');
+        $.ajax({ url: adminBase() + 'no-code-red/reload', method: 'POST', dataType: 'json' })
+          .done(function (resp) {
+            $reloadStatus.text('✓ ' + resp.okCount + ' / ' + resp.total + ' reloaded').css('color', resp.ok ? '#080' : '#a60');
+            refreshList();
+          })
+          .fail(function (xhr) { $reloadStatus.text('failed: HTTP ' + xhr.status).css('color', '#c33'); })
+          .always(function () { $reloadAll.prop('disabled', false); });
+      });
+      $reloadRow.append($reloadAll, $reloadStatus);
+      $panel.append($reloadRow);
+
+      var $list = $('<div>').css({ 'margin-bottom': '8px', 'font-size': '12px' });
+      $panel.append($('<div>').text('Existing custom nodes:').css({ 'font-weight': 'bold', 'margin-bottom': '4px' }));
+      $panel.append($list);
+
+      function refreshList() {
+        $list.html('<span style="color:#999">loading…</span>');
+        $.ajax({ url: adminBase() + 'no-code-red/custom-nodes', dataType: 'json' })
+          .done(function (data) {
+            $list.empty();
+            if (!data.nodes || data.nodes.length === 0) {
+              $list.append('<div style="color:#999">(none yet)</div>');
+              return;
+            }
+            data.nodes.forEach(function (n) {
+              var $row = $('<div>').css({ display: 'flex', 'align-items': 'center', gap: '6px', padding: '2px 0' });
+              $row.append($('<span>').text(n.name).css({ flex: '1', 'font-family': 'monospace' }));
+              $row.append($('<span>').text(n.built ? '✓ built' : '✗ unbuilt').css({ 'font-size': '11px', color: n.built ? '#080' : '#c33' }));
+              var $del = $('<button>').text('×').addClass('red-ui-button').css({ padding: '0 6px', 'font-size': '14px' });
+              $del.on('click', function () {
+                if (!confirm('Delete custom node "' + n.name + '"?')) return;
+                $.ajax({ url: adminBase() + 'no-code-red/custom-nodes/' + n.name, method: 'DELETE' })
+                  .done(refreshList);
+              });
+              $row.append($del);
+              $list.append($row);
+            });
+          })
+          .fail(function () { $list.html('<span style="color:#c33">failed to load</span>'); });
+      }
+      refreshList();
+
+      // Create form
+      var $form = $('<div>').css({ 'border': '1px solid #e5e5e5', 'border-radius': '4px', padding: '8px', 'margin-top': '8px' });
+      $form.append($('<div>').text('Create new').css({ 'font-weight': 'bold', 'margin-bottom': '4px' }));
+      var $name = $('<input type="text" placeholder="kebab-case-name (e.g. slack-webhook)">')
+        .css({ width: '100%', padding: '4px', 'box-sizing': 'border-box', 'font-family': 'monospace', 'margin-bottom': '4px' });
+      var $desc = $('<textarea placeholder="Describe what the node does. Claude writes the code.">')
+        .css({ width: '100%', height: '70px', padding: '4px', 'box-sizing': 'border-box', 'font-family': 'sans-serif', 'font-size': '12px', resize: 'vertical', 'margin-bottom': '4px' });
+      $form.append($name, $desc);
+
+      var $modeRow = $('<div>').css({ display: 'flex', gap: '6px', 'margin-bottom': '4px', 'font-size': '12px' });
+      var modeId = 'ncr-cn-mode-' + Math.random().toString(36).slice(2);
+      $modeRow.append($('<label>').html('<input type="radio" name="' + modeId + '" value="ai" checked> AI generate'));
+      $modeRow.append($('<label>').html('<input type="radio" name="' + modeId + '" value="manual"> Manual (paste source)'));
+      $form.append($modeRow);
+
+      var $tsBox = $('<textarea placeholder="Paste .ts source here">')
+        .css({ width: '100%', height: '120px', padding: '4px', 'box-sizing': 'border-box', 'font-family': 'monospace', 'font-size': '11px', resize: 'vertical', 'margin-bottom': '4px', display: 'none' });
+      var $htmlBox = $('<textarea placeholder="Paste .html config form here">')
+        .css({ width: '100%', height: '90px', padding: '4px', 'box-sizing': 'border-box', 'font-family': 'monospace', 'font-size': '11px', resize: 'vertical', 'margin-bottom': '4px', display: 'none' });
+      $form.append($tsBox, $htmlBox);
+
+      $modeRow.find('input[type=radio]').on('change', function () {
+        var manual = $modeRow.find('input[type=radio]:checked').val() === 'manual';
+        $tsBox.toggle(manual);
+        $htmlBox.toggle(manual);
+      });
+
+      var $create = $('<button>').text('Create + build').addClass('red-ui-button').css({ padding: '6px 10px', width: '100%' });
+      var $status = $('<div>').css({ 'margin-top': '6px', 'font-size': '11px', 'min-height': '18px' });
+      $form.append($create, $status);
+
+      $create.on('click', function () {
+        var name = ($name.val() || '').trim();
+        var description = ($desc.val() || '').trim();
+        if (!name || !description) { $status.text('Need both name and description.').css('color', '#c33'); return; }
+        var manual = $modeRow.find('input[type=radio]:checked').val() === 'manual';
+        var body = { name: name, description: description, generate: !manual };
+        if (manual) {
+          body.tsSource = $tsBox.val() || '';
+          body.htmlSource = $htmlBox.val() || '';
+        }
+        $create.prop('disabled', true);
+        $status.text(manual ? 'Writing + building…' : 'Generating + building (this may take 20-40 s)…').css('color', '#444');
+        $.ajax({
+          url: adminBase() + 'no-code-red/custom-nodes',
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(body),
+          dataType: 'json',
+        })
+          .done(function (resp) {
+            $status.html('✓ created <code>' + resp.name + '</code>. ' + (resp.hint || '')).css('color', '#080');
+            $name.val(''); $desc.val(''); $tsBox.val(''); $htmlBox.val('');
+            refreshList();
+          })
+          .fail(function (xhr) {
+            var msg = (xhr.responseJSON && xhr.responseJSON.error) || ('HTTP ' + xhr.status);
+            $status.text('Failed: ' + msg).css('color', '#c33');
+          })
+          .always(function () { $create.prop('disabled', false); });
+      });
+      $panel.append($form);
+      return $panel;
+    }
+
+    // ----------------------- Trace panel -----------------------
+
+    function buildTracePanel() {
+      var $panel = $('<div>').css({ padding: '12px', 'font-family': 'sans-serif', 'font-size': '13px', 'border-top': '1px solid #ddd', 'margin-top': '12px' });
+      $panel.append('<h4 style="margin:0 0 4px 0">Trace</h4>');
+      $panel.append('<p style="color:#666;line-height:1.45;margin-bottom:8px">Pause/step any wire that has a <code>tracer</code> node on it. Default mode is pass-through; flipping to <b>pause</b> holds every msg until you press <b>Step</b> or <b>Resume</b>.</p>');
+
+      var $list = $('<div>').css({ 'font-size': '12px' });
+      $panel.append($list);
+
+      var rowsById = {}; // id -> { $row, snapshot }
+
+      function fmtTime(ms) {
+        var d = new Date(ms);
+        return d.toLocaleTimeString();
+      }
+
+      function renderRow(snap) {
+        var existing = rowsById[snap.id];
+        var $row;
+        if (existing) {
+          $row = existing.$row;
+          $row.empty();
+        } else {
+          $row = $('<div>').css({ border: '1px solid #e5e5e5', 'border-radius': '4px', padding: '6px', 'margin-bottom': '6px', 'background': '#fafafa' });
+          rowsById[snap.id] = { $row: $row };
+          $list.append($row);
+        }
+        rowsById[snap.id].snapshot = snap;
+
+        var $header = $('<div>').css({ display: 'flex', 'align-items': 'center', gap: '6px', 'margin-bottom': '4px' });
+        $header.append($('<span>').text(snap.name || ('id:' + snap.id.slice(0, 6))).css({ flex: '1', 'font-family': 'monospace', 'font-weight': 'bold' }));
+        $header.append($('<span>').text(snap.mode).css({ 'font-size': '11px', padding: '1px 6px', 'border-radius': '8px', background: snap.mode === 'paused' ? '#fdecec' : '#e7f6e7', color: snap.mode === 'paused' ? '#a40000' : '#1a6b1a' }));
+        $header.append($('<span>').text('held ' + snap.heldCount + ' / seen ' + snap.seenCount).css({ 'font-size': '11px', color: '#666' }));
+        $row.append($header);
+
+        var $controls = $('<div>').css({ display: 'flex', gap: '4px', 'margin-bottom': '4px' });
+        function ctlBtn(label, action) {
+          var $b = $('<button>').text(label).addClass('red-ui-button').css({ flex: '1', padding: '3px 6px', 'font-size': '11px' });
+          $b.on('click', function () {
+            $.ajax({ url: adminBase() + 'no-code-red/tracers/' + snap.id + '/' + action, method: 'POST' });
+          });
+          return $b;
+        }
+        $controls.append(ctlBtn('Pause', 'pause'));
+        $controls.append(ctlBtn('Step', 'step'));
+        $controls.append(ctlBtn('Resume', 'resume'));
+        $row.append($controls);
+
+        if (snap.recent && snap.recent.length > 0) {
+          var $log = $('<div>').css({ 'background': '#fff', border: '1px solid #eee', 'border-radius': '3px', padding: '4px', 'max-height': '100px', 'overflow-y': 'auto', 'font-family': 'monospace', 'font-size': '10px' });
+          // Show newest first.
+          for (var i = snap.recent.length - 1; i >= 0; i--) {
+            var r = snap.recent[i];
+            var $line = $('<div>').css({ 'padding': '1px 0', color: r.held ? '#a40000' : '#444' });
+            $line.text('#' + r.seq + ' ' + (r.held ? '⏸ ' : '↓ ') + fmtTime(r.receivedAt) + '  ' + r.preview);
+            $log.append($line);
+          }
+          $row.append($log);
+        }
+      }
+
+      function removeRow(id) {
+        var row = rowsById[id];
+        if (row) { row.$row.remove(); delete rowsById[id]; }
+      }
+
+      function emptyHint() {
+        if (Object.keys(rowsById).length === 0) {
+          if ($list.children().length === 0) {
+            $list.append($('<div>').addClass('ncr-empty-hint').text('(no tracer nodes deployed — drop one onto a wire and deploy)').css({ color: '#999', 'font-size': '11px', padding: '6px 0' }));
+          }
+        } else {
+          $list.find('.ncr-empty-hint').remove();
+        }
+      }
+
+      // Subscribe to SSE for real-time updates.
+      var es = new EventSource(adminBase() + 'no-code-red/tracers/events');
+      es.addEventListener('init', function (ev) {
+        var data = JSON.parse(ev.data);
+        $list.empty();
+        rowsById = {};
+        (data.tracers || []).forEach(renderRow);
+        emptyHint();
+      });
+      es.addEventListener('snapshot', function (ev) { renderRow(JSON.parse(ev.data)); emptyHint(); });
+      es.addEventListener('registered', function (ev) { renderRow(JSON.parse(ev.data)); emptyHint(); });
+      es.addEventListener('unregistered', function (ev) {
+        var d = JSON.parse(ev.data);
+        removeRow(d.id);
+        emptyHint();
+      });
+      // Close the EventSource if the tab is destroyed.
+      $panel.data('es', es);
+      emptyHint();
+
+      return $panel;
+    }
+
+    // ----------------------- Compose -----------------------
+
+    var $content = $('<div>');
+    $content.append(buildGeneratePanel());
+    $content.append(buildChatPanel());
+    $content.append(buildCustomNodesPanel());
+    $content.append(buildTracePanel());
+
+    RED.sidebar.addTab({
+      id: TAB_ID,
+      label: 'no_code_red',
+      name: 'no_code_red',
+      iconClass: 'fa fa-magic',
+      content: $content,
+      enableOnEdit: true,
+    });
+  })();
+</script>

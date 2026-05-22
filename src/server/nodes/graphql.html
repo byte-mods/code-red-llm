@@ -1,0 +1,18 @@
+<script type="text/javascript">
+  RED.nodes.registerType('graphql', {
+    category: 'function', color: '#e8a8c5', paletteLabel: 'graphql',
+    defaults: {
+      name: { value: '' }, endpoint: { value: 'http://localhost:4000/graphql' },
+      authHeader: { value: '' }, query: { value: '' },
+    },
+    inputs: 1, outputs: 1, icon: 'function.svg',
+    label: function () { return this.name || 'graphql'; },
+  });
+</script>
+<script type="text/html" data-template-name="graphql">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-endpoint"><i class="fa fa-link"></i> Endpoint</label><input type="text" id="node-input-endpoint"></div>
+  <div class="form-row"><label for="node-input-authHeader"><i class="fa fa-key"></i> Auth</label><input type="text" id="node-input-authHeader" placeholder="Bearer …"></div>
+  <div class="form-row"><label for="node-input-query" style="vertical-align: top"><i class="fa fa-code"></i> Default query</label><textarea id="node-input-query" rows="4" style="width:70%"></textarea></div>
+</script>
+<script type="text/html" data-help-name="graphql"><p>Generic GraphQL client. <code>msg.query</code> overrides; <code>msg.variables</code> object for parameterised queries.</p></script>

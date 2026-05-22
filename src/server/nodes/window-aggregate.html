@@ -1,0 +1,37 @@
+<script type="text/javascript">
+  RED.nodes.registerType('window-aggregate', {
+    category: 'function', color: '#ffd1dc', paletteLabel: 'window-aggregate',
+    defaults: {
+      name: { value: '' },
+      windowType: { value: 'tumbling' },
+      windowMs: { value: 10000 },
+      slideMs: { value: 5000 },
+      sessionGapMs: { value: 5000 },
+      keyField: { value: '' },
+      valueField: { value: '' },
+      op: { value: 'count' },
+    },
+    inputs: 1, outputs: 1, icon: 'function.svg',
+    label: function () { return this.name || ('window ' + (this.op || 'count')); },
+  });
+</script>
+<script type="text/html" data-template-name="window-aggregate">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-windowType"><i class="fa fa-cog"></i> Type</label>
+    <select id="node-input-windowType">
+      <option value="tumbling">tumbling</option><option value="sliding">sliding</option><option value="session">session</option>
+    </select>
+  </div>
+  <div class="form-row"><label for="node-input-windowMs"><i class="fa fa-clock-o"></i> Window ms</label><input type="number" id="node-input-windowMs"></div>
+  <div class="form-row"><label for="node-input-slideMs"><i class="fa fa-arrows-h"></i> Slide ms</label><input type="number" id="node-input-slideMs"></div>
+  <div class="form-row"><label for="node-input-sessionGapMs"><i class="fa fa-pause"></i> Session gap ms</label><input type="number" id="node-input-sessionGapMs"></div>
+  <div class="form-row"><label for="node-input-keyField"><i class="fa fa-key"></i> Key field</label><input type="text" id="node-input-keyField" placeholder="(blank → one global bucket)"></div>
+  <div class="form-row"><label for="node-input-valueField"><i class="fa fa-hashtag"></i> Value field</label><input type="text" id="node-input-valueField" placeholder="(blank → msg.payload)"></div>
+  <div class="form-row"><label for="node-input-op"><i class="fa fa-calculator"></i> Aggregate</label>
+    <select id="node-input-op">
+      <option value="count">count</option><option value="sum">sum</option><option value="avg">avg</option>
+      <option value="min">min</option><option value="max">max</option><option value="first">first</option><option value="last">last</option>
+    </select>
+  </div>
+</script>
+<script type="text/html" data-help-name="window-aggregate"><p>Group messages by key, aggregate, emit on window close.</p></script>

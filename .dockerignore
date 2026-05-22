@@ -1,0 +1,17 @@
+node_modules
+dist
+.history
+.claude
+.git
+.gitignore
+.github
+test
+**/*.test.ts
+coverage
+.vitest-cache
+.eslintcache
+dev-config
+*.log
+.DS_Store
+README.md
+docker-compose.yml

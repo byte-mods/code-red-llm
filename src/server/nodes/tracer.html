@@ -1,0 +1,34 @@
+<script type="text/javascript">
+  RED.nodes.registerType('tracer', {
+    category: 'function',
+    color: '#ffe4b3',
+    paletteLabel: 'tracer',
+    defaults: {
+      name: { value: '' },
+      initialMode: { value: 'running' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'function.svg',
+    label: function () { return this.name || ('tracer (' + (this.initialMode || 'running') + ')'); },
+  });
+</script>
+<script type="text/html" data-template-name="tracer">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-initialMode"><i class="fa fa-cog"></i> Initial mode</label>
+    <select id="node-input-initialMode">
+      <option value="running">running (pass-through)</option>
+      <option value="paused">paused (hold all msgs)</option>
+    </select>
+  </div>
+  <p style="font-size:11px; color:#888; line-height:1.45">
+    Drop a tracer onto any wire to inspect / step / pause that path. Control via the <b>Trace</b> panel in the no_code_red sidebar.
+  </p>
+</script>
+<script type="text/html" data-help-name="tracer">
+  <p>Inline step-through debugger. Pause to hold every msg arriving at this point; the sidebar Trace panel shows held msgs and offers Step / Resume controls.</p>
+</script>

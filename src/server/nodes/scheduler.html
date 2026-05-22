@@ -1,0 +1,26 @@
+<script type="text/javascript">
+  RED.nodes.registerType('scheduler', {
+    category: 'function', color: '#aaccff', paletteLabel: 'scheduler',
+    defaults: {
+      name: { value: '' }, mode: { value: 'interval' },
+      intervalMs: { value: 60000 }, cron: { value: '* * * * *' },
+      payload: { value: '' },
+    },
+    inputs: 0, outputs: 1, icon: 'function.svg',
+    label: function () {
+      if (this.name) return this.name;
+      return this.mode === 'cron' ? ('cron ' + (this.cron || '')) : ('every ' + (this.intervalMs || 0) + 'ms');
+    },
+  });
+</script>
+<script type="text/html" data-template-name="scheduler">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-mode"><i class="fa fa-cog"></i> Mode</label>
+    <select id="node-input-mode"><option value="interval">interval</option><option value="cron">cron</option></select>
+  </div>
+  <div class="form-row"><label for="node-input-intervalMs"><i class="fa fa-clock-o"></i> Interval ms</label><input type="number" id="node-input-intervalMs" placeholder="60000"></div>
+  <div class="form-row"><label for="node-input-cron"><i class="fa fa-calendar"></i> Cron</label><input type="text" id="node-input-cron" placeholder="*/5 * * * *"></div>
+  <div class="form-row"><label for="node-input-payload" style="vertical-align: top"><i class="fa fa-arrow-right"></i> Payload</label><textarea id="node-input-payload" rows="3" style="width:70%" placeholder="string or JSON literal"></textarea></div>
+  <p style="font-size:11px;color:#888">cron uses 5-field syntax: minute hour dom month dow.</p>
+</script>
+<script type="text/html" data-help-name="scheduler"><p>Source node that fires on interval or cron schedule. msg.payload is the configured value; msg.topic is the ISO timestamp.</p></script>

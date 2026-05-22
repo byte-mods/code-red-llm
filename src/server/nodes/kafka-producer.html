@@ -1,0 +1,38 @@
+<script type="text/javascript">
+  RED.nodes.registerType('kafka-producer', {
+    category: 'storage',
+    color: '#cccccc',
+    paletteLabel: 'kafka out',
+    defaults: {
+      name: { value: '' },
+      brokers: { value: 'localhost:9092' },
+      clientId: { value: 'no-code-red-producer' },
+      topic: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'feed.svg',
+    label: function () { return this.name || ('kafka → ' + (this.topic || '?')); },
+  });
+</script>
+<script type="text/html" data-template-name="kafka-producer">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="kafka-producer">
+  </div>
+  <div class="form-row">
+    <label for="node-input-brokers"><i class="fa fa-server"></i> Brokers</label>
+    <input type="text" id="node-input-brokers" placeholder="host:9092,host2:9092">
+  </div>
+  <div class="form-row">
+    <label for="node-input-clientId"><i class="fa fa-id-badge"></i> Client id</label>
+    <input type="text" id="node-input-clientId">
+  </div>
+  <div class="form-row">
+    <label for="node-input-topic"><i class="fa fa-tag"></i> Default topic</label>
+    <input type="text" id="node-input-topic">
+  </div>
+</script>
+<script type="text/html" data-help-name="kafka-producer">
+  <p>Sends <code>msg.payload</code> to Kafka. Override <code>msg.topic</code> / <code>msg.key</code> per message.</p>
+</script>

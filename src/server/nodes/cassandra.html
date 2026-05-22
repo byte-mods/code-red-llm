@@ -1,0 +1,72 @@
+<script type="text/javascript">
+  function regCQL(type, color) {
+    RED.nodes.registerType(type, {
+      category: 'storage',
+      color: color,
+      paletteLabel: type,
+      defaults: {
+        name: { value: '' },
+        contactPoints: { value: 'localhost' },
+        localDataCenter: { value: 'datacenter1' },
+        keyspace: { value: '' },
+        query: { value: '' },
+      },
+      inputs: 1,
+      outputs: 1,
+      icon: 'db.svg',
+      label: function () { return this.name || type; },
+    });
+  }
+  regCQL('cassandra', '#a3d0e3');
+  regCQL('scylladb',  '#b6e4ec');
+</script>
+<script type="text/html" data-template-name="cassandra">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="cassandra">
+  </div>
+  <div class="form-row">
+    <label for="node-input-contactPoints"><i class="fa fa-server"></i> Hosts</label>
+    <input type="text" id="node-input-contactPoints" placeholder="h1,h2,h3">
+  </div>
+  <div class="form-row">
+    <label for="node-input-localDataCenter"><i class="fa fa-globe"></i> DC</label>
+    <input type="text" id="node-input-localDataCenter" placeholder="datacenter1">
+  </div>
+  <div class="form-row">
+    <label for="node-input-keyspace"><i class="fa fa-folder"></i> Keyspace</label>
+    <input type="text" id="node-input-keyspace">
+  </div>
+  <div class="form-row">
+    <label for="node-input-query" style="vertical-align: top"><i class="fa fa-code"></i> Default CQL</label>
+    <textarea id="node-input-query" rows="4" style="width:70%"></textarea>
+  </div>
+</script>
+<script type="text/html" data-template-name="scylladb">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="scylladb">
+  </div>
+  <div class="form-row">
+    <label for="node-input-contactPoints"><i class="fa fa-server"></i> Hosts</label>
+    <input type="text" id="node-input-contactPoints" placeholder="h1,h2,h3">
+  </div>
+  <div class="form-row">
+    <label for="node-input-localDataCenter"><i class="fa fa-globe"></i> DC</label>
+    <input type="text" id="node-input-localDataCenter" placeholder="datacenter1">
+  </div>
+  <div class="form-row">
+    <label for="node-input-keyspace"><i class="fa fa-folder"></i> Keyspace</label>
+    <input type="text" id="node-input-keyspace">
+  </div>
+  <div class="form-row">
+    <label for="node-input-query" style="vertical-align: top"><i class="fa fa-code"></i> Default CQL</label>
+    <textarea id="node-input-query" rows="4" style="width:70%"></textarea>
+  </div>
+</script>
+<script type="text/html" data-help-name="cassandra">
+  <p>Run CQL against a Cassandra cluster. <code>msg.query</code> overrides; <code>msg.params</code> binds positional placeholders.</p>
+</script>
+<script type="text/html" data-help-name="scylladb">
+  <p>Run CQL against a ScyllaDB cluster (wire-compatible with Cassandra). Same input contract.</p>
+</script>

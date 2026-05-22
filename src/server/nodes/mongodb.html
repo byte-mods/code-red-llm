@@ -1,0 +1,49 @@
+<script type="text/javascript">
+  RED.nodes.registerType('mongodb', {
+    category: 'storage',
+    color: '#a8e0a0',
+    paletteLabel: 'mongodb',
+    defaults: {
+      name: { value: '' },
+      uri: { value: 'mongodb://localhost:27017' },
+      database: { value: '' },
+      collection: { value: '' },
+      operation: { value: 'find' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'db.svg',
+    label: function () { return this.name || ('mongo ' + (this.operation || 'find')); },
+  });
+</script>
+<script type="text/html" data-template-name="mongodb">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="mongodb">
+  </div>
+  <div class="form-row">
+    <label for="node-input-uri"><i class="fa fa-link"></i> URI</label>
+    <input type="text" id="node-input-uri" placeholder="mongodb://localhost:27017">
+  </div>
+  <div class="form-row">
+    <label for="node-input-database"><i class="fa fa-database"></i> Database</label>
+    <input type="text" id="node-input-database">
+  </div>
+  <div class="form-row">
+    <label for="node-input-collection"><i class="fa fa-folder"></i> Collection</label>
+    <input type="text" id="node-input-collection">
+  </div>
+  <div class="form-row">
+    <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+    <select id="node-input-operation">
+      <option value="find">find</option>
+      <option value="insertOne">insertOne</option>
+      <option value="updateOne">updateOne</option>
+      <option value="deleteOne">deleteOne</option>
+      <option value="aggregate">aggregate</option>
+    </select>
+  </div>
+</script>
+<script type="text/html" data-help-name="mongodb">
+  <p>MongoDB connector. Supply <code>msg.filter</code> / <code>msg.doc</code> / <code>msg.update</code> / <code>msg.pipeline</code> depending on the operation.</p>
+</script>

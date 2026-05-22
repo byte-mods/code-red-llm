@@ -1,0 +1,79 @@
+# CI gate: every PR and every push to main must pass typecheck, lint, the
+# vitest suite, and a clean build. Steps deliberately run sequentially in
+# one job so a failure in any earlier step short-circuits and saves runner
+# minutes; we do not need parallelism at this scale.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke — boot Node-RED and probe /health
+        run: |
+          node scripts/start.mjs &
+          PID=$!
+          trap "kill $PID 2>/dev/null || true" EXIT
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:1880/no-code-red/health > /tmp/health.json; then
+              cat /tmp/health.json
+              echo
+              grep -q '"plugin":"no-code-red"' /tmp/health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "health probe did not respond within 20s" >&2
+          exit 1
+        env:
+          PORT: '1880'
+          NRED_USER_DIR: ${{ runner.temp }}/nodered-data
+
+      - name: Upload dist artifact
+        if: matrix.node == '20'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7

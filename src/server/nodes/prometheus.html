@@ -1,0 +1,19 @@
+<script type="text/javascript">
+  RED.nodes.registerType('prometheus', {
+    category: 'function', color: '#ffd5a8', paletteLabel: 'prometheus',
+    defaults: {
+      name: { value: '' }, url: { value: 'http://localhost:9091' },
+      job: { value: 'no_code_red' }, instance: { value: '' }, metric: { value: '' },
+    },
+    inputs: 1, outputs: 1, icon: 'function.svg',
+    label: function () { return this.name || ('prom push ' + (this.metric || '?')); },
+  });
+</script>
+<script type="text/html" data-template-name="prometheus">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-url"><i class="fa fa-link"></i> URL</label><input type="text" id="node-input-url" placeholder="http://pushgateway:9091"></div>
+  <div class="form-row"><label for="node-input-job"><i class="fa fa-briefcase"></i> Job</label><input type="text" id="node-input-job"></div>
+  <div class="form-row"><label for="node-input-instance"><i class="fa fa-server"></i> Instance</label><input type="text" id="node-input-instance"></div>
+  <div class="form-row"><label for="node-input-metric"><i class="fa fa-line-chart"></i> Metric</label><input type="text" id="node-input-metric" placeholder="my_metric_name"></div>
+</script>
+<script type="text/html" data-help-name="prometheus"><p>Push a single metric to a Prometheus Pushgateway. msg.value (number), msg.labels {label: value}.</p></script>

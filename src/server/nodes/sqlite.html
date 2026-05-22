@@ -1,0 +1,22 @@
+<script type="text/javascript">
+  RED.nodes.registerType('sqlite', {
+    category: 'storage',
+    color: '#9ad6d6',
+    paletteLabel: 'sqlite',
+    defaults: {
+      name: { value: '' },
+      file: { value: ':memory:' },
+      query: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'db.svg',
+    label: function () { return this.name || 'sqlite'; },
+  });
+</script>
+<script type="text/html" data-template-name="sqlite">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-file"><i class="fa fa-file"></i> File</label><input type="text" id="node-input-file" placeholder=":memory: or /path/to.db"></div>
+  <div class="form-row"><label for="node-input-query" style="vertical-align: top"><i class="fa fa-code"></i> Default SQL</label><textarea id="node-input-query" rows="4" style="width:70%"></textarea></div>
+</script>
+<script type="text/html" data-help-name="sqlite"><p>Embedded SQL via better-sqlite3. <code>msg.query</code> overrides; <code>msg.params</code> binds positional or named placeholders.</p></script>

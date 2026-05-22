@@ -1,0 +1,53 @@
+<script type="text/javascript">
+  RED.nodes.registerType('mariadb', {
+    category: 'storage',
+    color: '#e0a48a',
+    paletteLabel: 'mariadb',
+    defaults: {
+      name: { value: '' },
+      host: { value: 'localhost' },
+      port: { value: 3306 },
+      user: { value: '' },
+      password: { value: '' },
+      database: { value: '' },
+      query: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'db.svg',
+    label: function () { return this.name || 'mariadb'; },
+  });
+</script>
+<script type="text/html" data-template-name="mariadb">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="mariadb">
+  </div>
+  <div class="form-row">
+    <label for="node-input-host"><i class="fa fa-server"></i> Host</label>
+    <input type="text" id="node-input-host" placeholder="localhost">
+  </div>
+  <div class="form-row">
+    <label for="node-input-port"><i class="fa fa-globe"></i> Port</label>
+    <input type="number" id="node-input-port" placeholder="3306">
+  </div>
+  <div class="form-row">
+    <label for="node-input-user"><i class="fa fa-user"></i> User</label>
+    <input type="text" id="node-input-user">
+  </div>
+  <div class="form-row">
+    <label for="node-input-password"><i class="fa fa-lock"></i> Password</label>
+    <input type="password" id="node-input-password">
+  </div>
+  <div class="form-row">
+    <label for="node-input-database"><i class="fa fa-database"></i> Database</label>
+    <input type="text" id="node-input-database">
+  </div>
+  <div class="form-row">
+    <label for="node-input-query" style="vertical-align: top"><i class="fa fa-code"></i> Default SQL</label>
+    <textarea id="node-input-query" rows="4" style="width:70%"></textarea>
+  </div>
+</script>
+<script type="text/html" data-help-name="mariadb">
+  <p>Runs a SQL query against MariaDB/MySQL. <code>msg.query</code> overrides config; <code>msg.params</code> binds positional placeholders.</p>
+</script>

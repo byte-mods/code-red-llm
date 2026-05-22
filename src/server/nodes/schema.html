@@ -1,0 +1,48 @@
+<script type="text/javascript">
+  RED.nodes.registerType('schema', {
+    category: 'function',
+    color: '#dcc8e6',
+    paletteLabel: 'schema',
+    defaults: {
+      name: { value: '' },
+      definition: { value: '{\n  "id": "string",\n  "amount": "number"\n}' },
+      target: { value: 'payload' },
+      strict: { value: false },
+    },
+    inputs: 1,
+    outputs: 2,
+    outputLabels: ['valid', 'invalid'],
+    icon: 'function.svg',
+    label: function () { return this.name || 'schema'; },
+  });
+</script>
+<script type="text/html" data-template-name="schema">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-target"><i class="fa fa-crosshairs"></i> Target</label>
+    <input type="text" id="node-input-target" placeholder="payload">
+  </div>
+  <div class="form-row">
+    <label for="node-input-definition" style="vertical-align: top"><i class="fa fa-list"></i> Schema</label>
+    <textarea id="node-input-definition" rows="10" style="width:70%; font-family: monospace; font-size: 12px"></textarea>
+  </div>
+  <div class="form-row">
+    <label for="node-input-strict"><i class="fa fa-lock"></i> Strict</label>
+    <input type="checkbox" id="node-input-strict" style="display:inline-block; width:20px; vertical-align: baseline">
+    <span style="font-size:11px; color:#888">reject messages with extra fields</span>
+  </div>
+  <p style="font-size:11px; color:#888; line-height:1.4">
+    Types: <code>string</code>, <code>number</code>, <code>integer</code>, <code>boolean</code>, <code>object</code>,
+    <code>array</code>, <code>null</code>, <code>any</code>. Suffix a field with <code>?</code> to mark it optional.
+    Valid messages exit port 1; invalid exit port 2 with <code>msg.errors: string[]</code>.
+  </p>
+</script>
+<script type="text/html" data-help-name="schema">
+  <p>Schema validator — enforces a typed tuple shape on <code>msg.payload</code> (or any other msg field).</p>
+  <p><b>Definition</b> is a JSON object mapping field name → type tag. Suffix any field with <code>?</code> to make it optional.</p>
+  <p><b>Strict</b> mode also rejects messages whose payload contains fields not declared in the schema.</p>
+  <p><b>Outputs:</b> port 1 = valid pass-through; port 2 = invalid (original msg + <code>msg.errors</code>).</p>
+</script>

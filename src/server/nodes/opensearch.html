@@ -1,0 +1,25 @@
+<script type="text/javascript">
+  RED.nodes.registerType('opensearch', {
+    category: 'storage',
+    color: '#a8d4fc',
+    paletteLabel: 'opensearch',
+    defaults: {
+      name: { value: '' }, node: { value: 'http://localhost:9200' },
+      username: { value: '' }, password: { value: '' },
+      index: { value: '' }, operation: { value: 'search' },
+    },
+    inputs: 1, outputs: 1, icon: 'db.svg',
+    label: function () { return this.name || ('os ' + (this.operation || 'search')); },
+  });
+</script>
+<script type="text/html" data-template-name="opensearch">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-node"><i class="fa fa-link"></i> URL</label><input type="text" id="node-input-node"></div>
+  <div class="form-row"><label for="node-input-username"><i class="fa fa-user"></i> User</label><input type="text" id="node-input-username"></div>
+  <div class="form-row"><label for="node-input-password"><i class="fa fa-lock"></i> Pass</label><input type="password" id="node-input-password"></div>
+  <div class="form-row"><label for="node-input-index"><i class="fa fa-folder"></i> Index</label><input type="text" id="node-input-index"></div>
+  <div class="form-row"><label for="node-input-operation"><i class="fa fa-cog"></i> Op</label>
+    <select id="node-input-operation"><option value="search">search</option><option value="index">index</option><option value="get">get</option><option value="delete">delete</option></select>
+  </div>
+</script>
+<script type="text/html" data-help-name="opensearch"><p>OpenSearch connector. Same operation set as elasticsearch.</p></script>

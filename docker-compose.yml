@@ -1,0 +1,35 @@
+# docker-compose for local development against a containerized build.
+#
+# Note: this builds the production image (Dockerfile) and runs it. For
+# iterative source editing without a rebuild, use `npm run dev` on the host
+# instead — that is the fast inner loop.
+#
+# Usage:
+#   docker compose up --build
+#   open http://localhost:1880/
+#   curl http://localhost:1880/no-code-red/health
+
+services:
+  no-code-red:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: no-code-red:dev
+    container_name: no-code-red
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered-data:/data
+    environment:
+      NODE_ENV: production
+      PORT: "1880"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:1880/no-code-red/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  nodered-data:

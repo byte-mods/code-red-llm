@@ -1,0 +1,21 @@
+<script type="text/javascript">
+  RED.nodes.registerType('qdrant', {
+    category: 'storage', color: '#f7c8d9', paletteLabel: 'qdrant',
+    defaults: {
+      name: { value: '' }, url: { value: 'http://localhost:6333' },
+      apiKey: { value: '' }, collection: { value: '' }, operation: { value: 'search' },
+    },
+    inputs: 1, outputs: 1, icon: 'db.svg',
+    label: function () { return this.name || ('qdrant ' + (this.operation || 'search')); },
+  });
+</script>
+<script type="text/html" data-template-name="qdrant">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-url"><i class="fa fa-link"></i> URL</label><input type="text" id="node-input-url"></div>
+  <div class="form-row"><label for="node-input-apiKey"><i class="fa fa-key"></i> API Key</label><input type="password" id="node-input-apiKey"></div>
+  <div class="form-row"><label for="node-input-collection"><i class="fa fa-folder"></i> Collection</label><input type="text" id="node-input-collection"></div>
+  <div class="form-row"><label for="node-input-operation"><i class="fa fa-cog"></i> Op</label>
+    <select id="node-input-operation"><option value="search">search</option><option value="upsert">upsert</option><option value="delete">delete</option></select>
+  </div>
+</script>
+<script type="text/html" data-help-name="qdrant"><p>Qdrant vector DB. msg.vector for search/upsert; msg.id for upsert/delete; msg.point = {id, vector, payload} for upsert.</p></script>

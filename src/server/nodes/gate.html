@@ -1,0 +1,16 @@
+<script type="text/javascript">
+  RED.nodes.registerType('gate', {
+    category: 'function', color: '#e8d4a0', paletteLabel: 'gate',
+    defaults: { name: { value: '' }, initial: { value: 'open' } },
+    inputs: 1, outputs: 1, icon: 'function.svg',
+    label: function () { return this.name || ('gate ' + (this.initial || 'open')); },
+  });
+</script>
+<script type="text/html" data-template-name="gate">
+  <div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label><input type="text" id="node-input-name"></div>
+  <div class="form-row"><label for="node-input-initial"><i class="fa fa-cog"></i> Initial</label>
+    <select id="node-input-initial"><option value="open">open</option><option value="closed">closed</option></select>
+  </div>
+  <p style="font-size:11px;color:#888">Send <code>msg.control='open' | 'close' | 'toggle'</code> to control. Data messages pass only when open.</p>
+</script>
+<script type="text/html" data-help-name="gate"><p>Pass-through filter controlled by msg.control messages.</p></script>
