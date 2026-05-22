@@ -427,6 +427,164 @@
       return $panel;
     }
 
+    // ----------------------- Simulate panel -----------------------
+
+    function buildSimulatePanel() {
+      var $panel = $('<div>').css({ padding: '12px', 'font-family': 'sans-serif', 'font-size': '13px', 'border-top': '1px solid #ddd', 'margin-top': '12px' });
+      $panel.append('<h4 style="margin:0 0 4px 0">Simulate</h4>');
+      $panel.append('<p style="color:#666;line-height:1.45;margin-bottom:8px">Dry-run the active flow without deploying. Pick a start node, set a payload, and step through the graph.</p>');
+
+      // Start node selector
+      var $startRow = $('<div>').css({ display: 'flex', gap: '6px', 'margin-bottom': '6px', 'align-items': 'center' });
+      $startRow.append($('<span>').text('Start:').css({ 'font-size': '12px', 'font-weight': 'bold' }));
+      var $startSelect = $('<select>').css({ flex: '1', padding: '4px', 'font-family': 'monospace', 'font-size': '12px' });
+      $startRow.append($startSelect);
+      var $refreshStart = $('<button>').text('↻').addClass('red-ui-button').css({ padding: '2px 6px', 'font-size': '12px' });
+      $startRow.append($refreshStart);
+      $panel.append($startRow);
+
+      function populateStartNodes() {
+        $startSelect.empty();
+        var flowId = activeFlowId();
+        if (!flowId) return;
+        var injects = [];
+        RED.nodes.eachNode(function (n) {
+          if (n.z === flowId) injects.push(n);
+        });
+        // Sort by type so inject nodes are at the top, then by name/id.
+        injects.sort(function (a, b) {
+          var ta = a.type === 'inject' ? 0 : 1;
+          var tb = b.type === 'inject' ? 0 : 1;
+          if (ta !== tb) return ta - tb;
+          var na = (a.name || a.type || a.id);
+          var nb = (b.name || b.type || b.id);
+          return na.localeCompare(nb);
+        });
+        if (injects.length === 0) {
+          $startSelect.append($('<option>').text('(no nodes on active tab)').val(''));
+          return;
+        }
+        injects.forEach(function (n) {
+          var label = (n.type === 'inject' ? '● ' : '○ ') + (n.name || n.type) + '  (' + n.id.slice(0, 6) + ')';
+          $startSelect.append($('<option>').text(label).val(n.id));
+        });
+        // Prefer currently selected node if it is on the active tab.
+        var selected = RED.nodes && RED.view && RED.view.selection && RED.view.selection().nodes;
+        if (selected && selected.length === 1) {
+          var sel = selected[0];
+          if (sel.z === flowId) $startSelect.val(sel.id);
+        }
+      }
+      populateStartNodes();
+      $refreshStart.on('click', populateStartNodes);
+
+      // Payload textarea
+      $panel.append($('<div>').text('Payload JSON:').css({ 'font-size': '12px', 'font-weight': 'bold', 'margin-bottom': '4px' }));
+      var $payload = $('<textarea>')
+        .attr('placeholder', '{\n  "payload": "hello"\n}')
+        .css({ width: '100%', height: '70px', padding: '6px', 'box-sizing': 'border-box', 'font-family': 'monospace', 'font-size': '12px', resize: 'vertical', border: '1px solid #ccc', 'border-radius': '4px' });
+      $payload.val('{}');
+      $panel.append($payload);
+
+      var $runRow = $('<div>').css({ display: 'flex', gap: '6px', 'margin-top': '6px' });
+      var $run = $('<button>').text('▶ Run').addClass('red-ui-button').css({ flex: '1', padding: '6px 10px' });
+      var $clear = $('<button>').text('Clear').addClass('red-ui-button').css({ padding: '6px 10px' });
+      $runRow.append($run, $clear);
+      $panel.append($runRow);
+
+      // Status + trace output
+      var $status = $('<div>').css({ 'margin-top': '8px', 'font-size': '12px', 'min-height': '18px' });
+      $panel.append($status);
+
+      var $trace = $('<div>').css({ 'margin-top': '8px', 'max-height': '280px', 'overflow-y': 'auto', 'font-size': '11px', 'font-family': 'monospace' });
+      $panel.append($trace);
+
+      function fmtPayload(p) {
+        try { return JSON.stringify(p).slice(0, 200); } catch (_) { return String(p).slice(0, 200); }
+      }
+
+      function renderTrace(result) {
+        $trace.empty();
+        if (!result.ok) {
+          $trace.append($('<div>').css({ color: '#c33', 'margin-bottom': '4px' }).text('Error: ' + (result.error || 'unknown')));
+        }
+        if (!result.trace || result.trace.length === 0) {
+          $trace.append($('<div>').css({ color: '#999' }).text('(no trace)'));
+          return;
+        }
+        result.trace.forEach(function (t, i) {
+          var $row = $('<div>').css({ border: '1px solid #e5e5e5', 'border-radius': '4px', padding: '5px', 'margin-bottom': '4px', background: t.status === 'error' ? '#fdecec' : '#fafafa' });
+          var $hdr = $('<div>').css({ display: 'flex', 'align-items': 'center', gap: '4px', 'margin-bottom': '2px' });
+          $hdr.append($('<span>').text('#' + (i + 1)).css({ 'font-weight': 'bold', color: '#666', 'min-width': '24px' }));
+          $hdr.append($('<span>').text(t.nodeType).css({ 'font-weight': 'bold', color: '#333' }));
+          $hdr.append($('<span>').text('(' + t.nodeId.slice(0, 6) + ')').css({ color: '#888' }));
+          var badgeColor = t.status === 'ok' ? '#e7f6e7' : (t.status === 'error' ? '#fdecec' : '#fff3cd');
+          var badgeTextColor = t.status === 'ok' ? '#1a6b1a' : (t.status === 'error' ? '#a40000' : '#856404');
+          $hdr.append($('<span>').text(t.status).css({ 'font-size': '10px', padding: '1px 5px', 'border-radius': '8px', background: badgeColor, color: badgeTextColor }));
+          $row.append($hdr);
+
+          var $in = $('<div>').css({ color: '#555', 'white-space': 'nowrap', 'overflow': 'hidden', 'text-overflow': 'ellipsis' }).text('→ ' + fmtPayload(t.input && t.input.payload));
+          $row.append($in);
+          var $out = $('<div>').css({ color: '#555', 'white-space': 'nowrap', 'overflow': 'hidden', 'text-overflow': 'ellipsis' }).text('← ' + fmtPayload(t.output && t.output.payload));
+          $row.append($out);
+
+          if (t.detail) {
+            $row.append($('<div>').css({ color: '#a40000', 'margin-top': '2px' }).text(t.detail));
+          }
+          $trace.append($row);
+        });
+      }
+
+      $run.on('click', function () {
+        var flowId = activeFlowId();
+        if (!flowId) { $status.text('No active tab.').css('color', '#c33'); return; }
+        var startNodeId = $startSelect.val();
+        if (!startNodeId) { $status.text('Pick a start node.').css('color', '#c33'); return; }
+
+        var nodes = [];
+        RED.nodes.eachNode(function (n) {
+          if (n.z === flowId) {
+            nodes.push({ id: n.id, type: n.type, wires: n.wires || [] });
+          }
+        });
+
+        var msg;
+        try {
+          msg = JSON.parse($payload.val() || '{}');
+        } catch (e) {
+          $status.text('Invalid JSON payload: ' + (e && e.message)).css('color', '#c33');
+          return;
+        }
+
+        $status.text('Running…').css('color', '#444');
+        $run.prop('disabled', true);
+        $.ajax({
+          url: adminBase() + 'no-code-red/simulate',
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ nodes: nodes, startNodeId: startNodeId, msg: msg }),
+          dataType: 'json',
+        })
+          .done(function (result) {
+            $status.text('Done — ' + result.trace.length + ' step(s).').css('color', result.ok ? '#080' : '#a60');
+            renderTrace(result);
+          })
+          .fail(function (xhr) {
+            var msg = (xhr.responseJSON && xhr.responseJSON.error) || ('HTTP ' + xhr.status);
+            $status.text('Failed: ' + msg).css('color', '#c33');
+            $trace.empty();
+          })
+          .always(function () { $run.prop('disabled', false); });
+      });
+
+      $clear.on('click', function () {
+        $trace.empty();
+        $status.text('Cleared.').css('color', '#888');
+      });
+
+      return $panel;
+    }
+
     // ----------------------- Custom Nodes panel -----------------------
 
     function buildCustomNodesPanel() {
@@ -656,6 +814,7 @@
     var $content = $('<div>');
     $content.append(buildGeneratePanel());
     $content.append(buildChatPanel());
+    $content.append(buildSimulatePanel());
     $content.append(buildCustomNodesPanel());
     $content.append(buildTracePanel());
 
