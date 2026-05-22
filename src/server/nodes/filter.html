@@ -1,0 +1,43 @@
+<script type="text/javascript">
+  RED.nodes.registerType('filter', {
+    category: 'function',
+    color: '#e8d4a0',
+    defaults: {
+      name: { value: '' },
+      rules: { value: '["msg.payload.active === true"]', required: true },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'switch.svg',
+    label: function () {
+      return this.name || 'filter';
+    },
+    oneditprepare: function () {
+      // Dynamically set outputs count based on parsed rules + 1 catch-all
+      try {
+        var r = JSON.parse(this.rules || '[]');
+        if (Array.isArray(r)) {
+          this.outputs = r.length + 1;
+        }
+      } catch (e) {}
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="filter">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-rules">Rules (JSON array)</label>
+    <input type="text" id="node-input-rules" placeholder='["msg.payload.status === &quot;active&quot;"]' />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="filter">
+  <p>Route messages to output ports based on predicate expressions.</p>
+  <p><b>Rules</b> is a JSON array of JavaScript expressions evaluated against <code>msg</code>.</p>
+  <p>The message is sent to the FIRST matching port. If nothing matches, it goes to the last port (catch-all).</p>
+  <p>Outputs = rules.length + 1.</p>
+</script>

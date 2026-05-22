@@ -14,8 +14,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AssistantEvent, ClaudeEvent } from '../../src/server/claude/index.js';
-import { SENTINEL_OPEN, SENTINEL_CLOSE } from '../../src/server/prompt/index.js';
-import { extractNodes, type NodeExtractionResult } from '../../src/server/extractor/index.js';
+import {
+  SENTINEL_OPEN,
+  SENTINEL_CLOSE,
+  SENTINEL_SCHEMA_OPEN,
+  SENTINEL_SCHEMA_CLOSE,
+} from '../../src/server/prompt/index.js';
+import { extractNodes, type ExtractionResult } from '../../src/server/extractor/index.js';
 
 /**
  * Build a fake AssistantEvent whose content is a single TextBlock with
@@ -37,8 +42,8 @@ async function* source(events: ClaudeEvent[]): AsyncIterable<ClaudeEvent> {
 }
 
 /** Drain `extractNodes` into an array for easy assertion. */
-async function drain(events: ClaudeEvent[]): Promise<NodeExtractionResult[]> {
-  const out: NodeExtractionResult[] = [];
+async function drain(events: ClaudeEvent[]): Promise<ExtractionResult[]> {
+  const out: ExtractionResult[] = [];
   for await (const r of extractNodes(source(events))) out.push(r);
   return out;
 }
@@ -48,6 +53,8 @@ const VALID_NODE_JSON = '{"id":"n1","type":"inject","x":100,"y":100,"wires":[["n
 const VALID_NODE_2_JSON = '{"id":"n2","type":"debug","x":300,"y":100,"wires":[]}';
 
 const block = (json: string): string => `${SENTINEL_OPEN}${json}${SENTINEL_CLOSE}`;
+
+const blockSchema = (json: string): string => `${SENTINEL_SCHEMA_OPEN}${json}${SENTINEL_SCHEMA_CLOSE}`;
 
 describe('extractNodes — happy paths', () => {
   it('test_extractNodes_yields_one_node_per_complete_block', async () => {
@@ -198,5 +205,65 @@ describe('extractNodes — non-assistant and empty events', () => {
   it('test_extractNodes_empty_iterator_yields_nothing', async () => {
     const out = await drain([]);
     expect(out).toHaveLength(0);
+  });
+});
+
+describe('extractNodes — schema blocks', () => {
+  it('test_extractNodes_yields_schema_per_complete_block', async () => {
+    const out = await drain([assistant(blockSchema('{"nodeId":"n1","fields":{"x":"string"}}'))]);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.kind).toBe('schema');
+    if (out[0]?.kind === 'schema') expect(out[0].schema.nodeId).toBe('n1');
+  });
+
+  it('test_extractNodes_schema_block_straddles_events', async () => {
+    const half = SENTINEL_SCHEMA_OPEN.slice(0, 4);
+    const rest =
+      SENTINEL_SCHEMA_OPEN.slice(4) +
+      '{"nodeId":"n1","fields":{"x":"string"}}' +
+      SENTINEL_SCHEMA_CLOSE;
+    const out = await drain([assistant(half), assistant(rest)]);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.kind).toBe('schema');
+  });
+
+  it('test_extractNodes_schema_malformed_json_error', async () => {
+    const out = await drain([assistant(`${SENTINEL_SCHEMA_OPEN}{bad json${SENTINEL_SCHEMA_CLOSE}`)]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ kind: 'error', reason: 'malformed-json' });
+  });
+
+  it('test_extractNodes_schema_missing_nodeId_error', async () => {
+    const out = await drain([assistant(blockSchema('{"fields":{"x":"string"}}'))]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      kind: 'error',
+      reason: 'validation-failed',
+      detail: 'schema missing nodeId',
+    });
+  });
+
+  it('test_extractNodes_schema_non_string_field_error', async () => {
+    const out = await drain([assistant(blockSchema('{"nodeId":"n1","fields":{"x":123}}'))]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({
+      kind: 'error',
+      reason: 'validation-failed',
+      detail: 'schema field x must be a type tag string',
+    });
+  });
+
+  it('test_extractNodes_interleaves_nodes_and_schemas', async () => {
+    const text = blockSchema('{"nodeId":"n1","fields":{"x":"string"}}') + block(VALID_NODE_JSON);
+    const out = await drain([assistant(text)]);
+    expect(out).toHaveLength(2);
+    expect(out[0]?.kind).toBe('schema');
+    expect(out[1]?.kind).toBe('node');
+  });
+
+  it('test_extractNodes_schema_runaway_sentinel', async () => {
+    const huge = SENTINEL_SCHEMA_OPEN + 'x'.repeat(70_000);
+    const out = await drain([assistant(huge)]);
+    expect(out.some((r) => r.kind === 'error' && r.reason === 'runaway-sentinel')).toBe(true);
   });
 });

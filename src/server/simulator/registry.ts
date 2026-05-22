@@ -87,6 +87,24 @@ registry.set('window-aggregate', passThrough);
 registry.set('schema', passThrough);
 registry.set('llm', (ctx) => ({ ...ctx.msg, payload: { content: 'mock llm response', model: cfgString(ctx.config, 'model') ?? '' } }));
 registry.set('tracer', passThrough);
+registry.set('query-table', passThrough);
+registry.set('table-join', passThrough);
+registry.set('liveview', passThrough);
+registry.set('filter', passThrough);
+registry.set('map', passThrough);
+registry.set('feed-sim', (ctx) => {
+  const schemaRaw = cfgString(ctx.config, 'schema') ?? '{}';
+  let payload: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(schemaRaw);
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === 'string') payload[k] = `mock-${v}`;
+      }
+    }
+  } catch { /* ignore */ }
+  return { ...ctx.msg, payload, topic: cfgString(ctx.config, 'topic') ?? '' };
+});
 
 export function getSimulator(nodeType: string): NodeSimulator {
   return registry.get(nodeType) ?? passThrough;

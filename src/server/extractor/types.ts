@@ -1,6 +1,6 @@
 /**
- * Narrow types for validated Node-RED nodes and the extractor's per-block
- * result envelope.
+ * Narrow types for validated Node-RED nodes, schema definitions, and the
+ * extractor's per-block result envelope.
  *
  * The minimal node shape covers what `RED.nodes.add()` actually requires to
  * place a node on the editor canvas. Type-specific fields (url, method,
@@ -29,6 +29,17 @@ export interface NodeRedNode {
 }
 
 /**
+ * Schema definition emitted by the LLM to describe the expected output
+ * shape of a node. Used by the wire-type validator (T3).
+ */
+export interface SchemaDefinition {
+  /** The node id this schema describes. */
+  readonly nodeId: string;
+  /** Field name → type tag mapping. */
+  readonly fields: Readonly<Record<string, string>>;
+}
+
+/**
  * Result of validating a single candidate object. PASS yields the narrowed
  * node; FAIL yields the full list of validation errors so the caller can
  * surface them all at once. Never throws.
@@ -38,13 +49,15 @@ export type ValidationResult =
   | { readonly ok: false; readonly errors: readonly string[] };
 
 /**
- * What the extractor (T3) yields for each `<NODE>…</NODE>` block it sees.
- * `kind: 'node'` is a validated node; `kind: 'error'` is a structured
- * failure (malformed JSON inside the sentinels, validation failure, or
- * runaway-sentinel buffer overflow). The stream continues either way.
+ * What the extractor yields for each complete sentinel block it sees.
+ * `kind: 'node'` is a validated node; `kind: 'schema'` is a typed schema;
+ * `kind: 'error'` is a structured failure (malformed JSON inside the
+ * sentinels, validation failure, or runaway-sentinel buffer overflow). The
+ * stream continues either way.
  */
-export type NodeExtractionResult =
+export type ExtractionResult =
   | { readonly kind: 'node'; readonly node: NodeRedNode }
+  | { readonly kind: 'schema'; readonly schema: SchemaDefinition }
   | { readonly kind: 'error'; readonly reason: ExtractionErrorReason; readonly detail: string };
 
 /** The reasons the extractor produces an `error` result instead of a node. */

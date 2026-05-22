@@ -56,6 +56,9 @@ import {
   handleReloadOne,
 } from './reload/index.js';
 import { handleSimulate } from './simulator/routes.js';
+import { SchemaRegistry, makeSchemaHandlers } from './schemas/index.js';
+import { requireApiKey } from './security/index.js';
+import { handleListLiveViews, handleGetLiveView } from './liveview/index.js';
 
 /** Canonical plugin id — referenced by package.json#node-red.plugins. */
 export const PLUGIN_ID = 'no-code-red';
@@ -92,6 +95,10 @@ const plugin: PluginFactory = (RED: RED): void => {
       RED.log.warn(`[${PLUGIN_ID}] history write failed: ${err.message}`);
     });
 
+  const schemaDbPath = resolve(historyRoot, 'schemas.sqlite');
+  const schemaRegistry = new SchemaRegistry(schemaDbPath);
+  const schemaHandlers = makeSchemaHandlers(schemaRegistry);
+
   RED.plugins.registerPlugin(PLUGIN_ID, {
     type: 'node-red-plugin',
     onremove: () => {
@@ -99,6 +106,7 @@ const plugin: PluginFactory = (RED: RED): void => {
       // generation so subprocesses are SIGTERM'd before the host exits.
       // The bridge already escalates to SIGKILL after killGraceMs.
       registry.cancelAll();
+      schemaRegistry.close();
     },
   });
 
@@ -106,14 +114,23 @@ const plugin: PluginFactory = (RED: RED): void => {
     res.json(HEALTH_PAYLOAD);
   });
 
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/validate`, (req: Request, res: Response) => {
+  // §12 Security: apply API-key auth to all mutating / data routes.
+  // Health remains open for load-balancer probes.
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/validate`, requireApiKey, (req: Request, res: Response) => {
     handleValidate(req, res);
   });
+
+  // Schema registry (S9.T1). CRUD for typed tuple definitions.
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/schemas`, requireApiKey, schemaHandlers.handleListSchemas);
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/schemas/:id`, requireApiKey, schemaHandlers.handleGetSchema);
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/schemas`, requireApiKey, schemaHandlers.handleCreateSchema);
+  RED.httpAdmin.put(`${ADMIN_PREFIX}/schemas/:id`, requireApiKey, schemaHandlers.handleUpdateSchema);
+  RED.httpAdmin.delete(`${ADMIN_PREFIX}/schemas/:id`, requireApiKey, schemaHandlers.handleDeleteSchema);
 
   // SSE generation endpoint — streams validated Node-RED nodes derived
   // from a natural-language prompt via the Claude CLI. See
   // src/server/sse/generate.ts for the wire shape and lifecycle.
-  RED.httpAdmin.get(`${ADMIN_PREFIX}/generate`, (req: Request, res: Response) => {
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/generate`, requireApiKey, (req: Request, res: Response) => {
     // Express does not await async handlers; we fire-and-forget here.
     // The handler itself owns lifecycle (SSE close, cancel, done frame),
     // and any rejection is already trapped inside `handleGenerate`.
@@ -121,49 +138,53 @@ const plugin: PluginFactory = (RED: RED): void => {
   });
 
   // Inspector: list active generations.
-  RED.httpAdmin.get(`${ADMIN_PREFIX}/generations`, (req: Request, res: Response) => {
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/generations`, requireApiKey, (req: Request, res: Response) => {
     handleListGenerations(req, res, registry);
   });
 
   // Explicit cancel by id (separate from client-disconnect cancel, which
   // is already wired inside handleGenerate via req.on('close')).
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/generations/:id/cancel`, (req: Request, res: Response) => {
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/generations/:id/cancel`, requireApiKey, (req: Request, res: Response) => {
     handleCancelGeneration(req, res, registry);
   });
 
   // Custom-node authoring (S10). List existing, create new (AI-generated
   // or manual), delete. Create runs `npm run build` and registers in
   // package.json#node-red.nodes — a server restart loads the new node.
-  RED.httpAdmin.get(`${ADMIN_PREFIX}/custom-nodes`, handleListCustomNodes);
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/custom-nodes`, (req: Request, res: Response) => {
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/custom-nodes`, requireApiKey, handleListCustomNodes);
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/custom-nodes`, requireApiKey, (req: Request, res: Response) => {
     void handleCreateCustomNode(req, res);
   });
-  RED.httpAdmin.delete(`${ADMIN_PREFIX}/custom-nodes/:name`, handleDeleteCustomNode);
+  RED.httpAdmin.delete(`${ADMIN_PREFIX}/custom-nodes/:name`, requireApiKey, handleDeleteCustomNode);
 
   // Tracer subsystem (S13). One node type `tracer` is registered via the
   // normal node loader path; these admin routes drive the per-instance
   // pause/resume/step controls from the sidebar.
-  RED.httpAdmin.get(`${ADMIN_PREFIX}/tracers`, handleListTracers);
-  RED.httpAdmin.get(`${ADMIN_PREFIX}/tracers/events`, handleTracerEvents);
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/tracers/:id/pause`, handlePauseTracer);
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/tracers/:id/resume`, handleResumeTracer);
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/tracers/:id/step`, handleStepTracer);
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/tracers`, requireApiKey, handleListTracers);
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/tracers/events`, requireApiKey, handleTracerEvents);
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/tracers/:id/pause`, requireApiKey, handlePauseTracer);
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/tracers/:id/resume`, requireApiKey, handleResumeTracer);
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/tracers/:id/step`, requireApiKey, handleStepTracer);
 
   // Hot module reload (S14). POST /reload re-registers every node in
   // package.json#node-red.nodes by dynamic-importing its compiled .js
   // with cache busting; /reload/:name does one. Re-deploying the flow
   // in the editor activates the new code for existing instances.
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/reload`, (req: Request, res: Response) => {
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/reload`, requireApiKey, (req: Request, res: Response) => {
     void handleReloadAll(req, res);
   });
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/reload/:name`, (req: Request, res: Response) => {
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/reload/:name`, requireApiKey, (req: Request, res: Response) => {
     void handleReloadOne(req, res);
   });
 
   // Simulation (S15). Dry-run a flow without deploying.
-  RED.httpAdmin.post(`${ADMIN_PREFIX}/simulate`, (req: Request, res: Response) => {
+  RED.httpAdmin.post(`${ADMIN_PREFIX}/simulate`, requireApiKey, (req: Request, res: Response) => {
     void handleSimulate(req, res);
   });
+
+  // LiveView (S10). Query materialized streaming tables.
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/liveview`, requireApiKey, handleListLiveViews);
+  RED.httpAdmin.get(`${ADMIN_PREFIX}/liveview/:name`, requireApiKey, handleGetLiveView);
 
   RED.log.info(`[${PLUGIN_ID}] plugin loaded; admin routes mounted at ${ADMIN_PREFIX}`);
 };

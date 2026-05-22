@@ -7,5 +7,7 @@ export {
   buildPrompt,
   SENTINEL_OPEN,
   SENTINEL_CLOSE,
+  SENTINEL_SCHEMA_OPEN,
+  SENTINEL_SCHEMA_CLOSE,
   type PromptOptions,
 } from './template.js';

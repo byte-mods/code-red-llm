@@ -16,7 +16,7 @@ export interface FlowIssue {
   /** The offending node id, or '*' for global issues. */
   readonly nodeId: string;
   /** Machine-readable category. */
-  readonly type: 'duplicate-id' | 'dangling-wire' | 'self-wire' | 'bad-coordinate' | 'bad-wires-shape';
+  readonly type: 'duplicate-id' | 'dangling-wire' | 'self-wire' | 'bad-coordinate' | 'bad-wires-shape' | 'type-mismatch';
   /** Human-readable explanation. */
   readonly detail: string;
 }

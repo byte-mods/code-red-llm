@@ -15,8 +15,12 @@ A Node-RED plugin that turns natural-language prompts into live, animated flows 
 - **S7 — Production hardening.** Graceful shutdown (RED.stop → cancel all active generations). Input limits: 8KB prompt cap (413), 2s per-IP rate limit (429), 4-concurrent cap (503). Multi-arch Docker via `buildx` (see below). Playwright e2e is deferred — left as a follow-up because it introduces a browser-binary dependency tree and CI runner changes that warrant their own session.
 
 - **S8 — Connectors + LLM node.** 11 new palette nodes shipped: `postgres`, `mariadb`, `oraclesql`, `mongodb`, `cassandra`, `scylladb`, `clickhouse`, `redis`, `kafka-producer`, `kafka-consumer`, `llm`. Each is demo-grade (single pool / client per deployed node, basic error → red status mapping, clean disconnect on flow stop). Prompt template extended so Claude knows all these node types exist and emits flows using them by name. See `src/server/nodes/`.
+- **S9 — Schema-First Flow System.** SQLite schema registry (`/no-code-red/schemas`) with CRUD + validation. LLM schema inference via `<SCHEMA>{...}</SCHEMA>` sentinel blocks. Wire-type validator checks upstream output vs downstream input before canvas add. Prompt auto-schema instructions tell Claude to insert `schema` nodes between typed producer/consumer pairs. See `src/server/schemas/` and `src/server/flow/wiretypes.ts`.
+- **S10 — LiveView.** `liveview` node materializes streaming messages into queryable in-memory tables with upsert-by-key or append semantics. REST snapshot API at `GET /no-code-red/liveview/:name`. See `src/server/nodes/liveview.ts` and `src/server/liveview/`.
+- **S12 — Security.** API-key middleware guards all admin routes except `/health`. Set `NO_CODE_RED_API_KEY` to enable; absent by default for local dev. See `src/server/security/`.
+- **S14 — Feed Simulation + Record/Replay.** `feed-sim` node generates synthetic events from a JSON schema with configurable interval and max count. History JSONL records already serve as the replay substrate (S6). See `src/server/nodes/feed-sim.ts`.
 
-**184 tests pass across 17 test files. 30+ connector nodes registered with the editor palette.**
+**295 tests pass across 29 test files. 35+ nodes registered with the editor palette.**
 
 ### Driver runtime notes (S8)
 

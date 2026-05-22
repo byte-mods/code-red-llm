@@ -50,6 +50,9 @@ function makeRedDouble(): {
       post: (path: string, handler: (req: unknown, res: unknown) => void) => {
         routes.set(`POST ${path}`, handler);
       },
+      put: (path: string, handler: (req: unknown, res: unknown) => void) => {
+        routes.set(`PUT ${path}`, handler);
+      },
       delete: (path: string, handler: (req: unknown, res: unknown) => void) => {
         routes.set(`DELETE ${path}`, handler);
       },
@@ -119,6 +122,23 @@ describe('plugin — admin routes', () => {
     plugin(red);
     expect(routes.has(`GET ${ADMIN_PREFIX}/generations`)).toBe(true);
     expect(routes.has(`POST ${ADMIN_PREFIX}/generations/:id/cancel`)).toBe(true);
+  });
+
+  it('test_schema_registry_routes_mounted', () => {
+    const { red, routes } = makeRedDouble();
+    plugin(red);
+    expect(routes.has(`GET ${ADMIN_PREFIX}/schemas`)).toBe(true);
+    expect(routes.has(`GET ${ADMIN_PREFIX}/schemas/:id`)).toBe(true);
+    expect(routes.has(`POST ${ADMIN_PREFIX}/schemas`)).toBe(true);
+    expect(routes.has(`PUT ${ADMIN_PREFIX}/schemas/:id`)).toBe(true);
+    expect(routes.has(`DELETE ${ADMIN_PREFIX}/schemas/:id`)).toBe(true);
+  });
+
+  it('test_liveview_routes_mounted', () => {
+    const { red, routes } = makeRedDouble();
+    plugin(red);
+    expect(routes.has(`GET ${ADMIN_PREFIX}/liveview`)).toBe(true);
+    expect(routes.has(`GET ${ADMIN_PREFIX}/liveview/:name`)).toBe(true);
   });
 
   it('test_plugin_registers_onremove_hook_for_graceful_shutdown', () => {

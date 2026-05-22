@@ -1,0 +1,33 @@
+<script type="text/javascript">
+  RED.nodes.registerType('map', {
+    category: 'function',
+    color: '#e8d4a0',
+    defaults: {
+      name: { value: '' },
+      rules: { value: '[{"field":"payload.total","expression":"msg.payload.price * msg.payload.qty"}]', required: true },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'function.svg',
+    label: function () {
+      return this.name || 'map';
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="map">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-rules">Rules (JSON array)</label>
+    <input type="text" id="node-input-rules" placeholder='[{"field":"...","expression":"..."}]' />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="map">
+  <p>Transform message fields using expression evaluation.</p>
+  <p><b>Rules</b> is a JSON array of objects with <code>field</code> (target property) and
+  <code>expression</code> (JavaScript expression evaluated against <code>msg</code>).</p>
+</script>

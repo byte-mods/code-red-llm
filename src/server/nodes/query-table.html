@@ -1,0 +1,48 @@
+<script type="text/javascript">
+  RED.nodes.registerType('query-table', {
+    category: 'function',
+    color: '#e8d4a0',
+    defaults: {
+      name: { value: '' },
+      tableName: { value: 'default', required: true },
+      primaryKey: { value: 'id', required: true },
+      operation: { value: 'read', required: true },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'db.svg',
+    label: function () {
+      return this.name || 'query-table';
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="query-table">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-tableName">Table</label>
+    <input type="text" id="node-input-tableName" placeholder="table name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-primaryKey">Primary Key</label>
+    <input type="text" id="node-input-primaryKey" placeholder="id" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-operation">Operation</label>
+    <select id="node-input-operation">
+      <option value="read">read</option>
+      <option value="write">write</option>
+      <option value="delete">delete</option>
+    </select>
+  </div>
+</script>
+
+<script type="text/html" data-help-name="query-table">
+  <p>In-memory query table with CRUD.</p>
+  <p><b>write</b>: msg.payload is an object with the primaryKey field.</p>
+  <p><b>read</b>: msg.payload is the key value to look up.</p>
+  <p><b>delete</b>: msg.payload is the key value to remove.</p>
+</script>

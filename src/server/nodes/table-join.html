@@ -1,0 +1,43 @@
+<script type="text/javascript">
+  RED.nodes.registerType('table-join', {
+    category: 'function',
+    color: '#e8d4a0',
+    defaults: {
+      name: { value: '' },
+      tableName: { value: 'default', required: true },
+      keyField: { value: 'payload', required: true },
+      outputField: { value: 'payload', required: true },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'join.svg',
+    label: function () {
+      return this.name || 'table-join';
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="table-join">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-tableName">Table</label>
+    <input type="text" id="node-input-tableName" placeholder="table name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-keyField">Key Field</label>
+    <input type="text" id="node-input-keyField" placeholder="payload" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-outputField">Output Field</label>
+    <input type="text" id="node-input-outputField" placeholder="payload" />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="table-join">
+  <p>Enrich a message by looking up a key in a shared query table.</p>
+  <p>Looks up <code>msg[keyField]</code> in the named table and writes the
+  matching record into <code>msg[outputField]</code>.</p>
+</script>

@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path';
 /** Per-event record persisted to disk. */
 export interface HistoryRecord {
   readonly ts: number;
-  readonly kind: 'meta' | 'node' | 'error' | 'done';
+  readonly kind: 'meta' | 'node' | 'schema' | 'error' | 'done';
   readonly data: unknown;
 }
 

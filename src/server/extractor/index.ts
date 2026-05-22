@@ -8,6 +8,7 @@ export { extractNodes } from './extractor.js';
 export type {
   NodeRedNode,
   ValidationResult,
-  NodeExtractionResult,
+  ExtractionResult,
+  SchemaDefinition,
   ExtractionErrorReason,
 } from './types.js';

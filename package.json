@@ -45,7 +45,13 @@
       "gate": "dist/server/nodes/gate.js",
       "metronome": "dist/server/nodes/metronome.js",
       "schema": "dist/server/nodes/schema.js",
-      "tracer": "dist/server/nodes/tracer.js"
+      "tracer": "dist/server/nodes/tracer.js",
+      "query-table": "dist/server/nodes/query-table.js",
+      "table-join": "dist/server/nodes/table-join.js",
+      "liveview": "dist/server/nodes/liveview.js",
+      "feed-sim": "dist/server/nodes/feed-sim.js",
+      "filter": "dist/server/nodes/filter.js",
+      "map": "dist/server/nodes/map.js"
     }
   },
   "scripts": {

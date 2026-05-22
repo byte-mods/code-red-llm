@@ -15,8 +15,8 @@ function makeNode(p: Partial<NodeRedNode> & { id: string }): NodeRedNode {
     x: p.x ?? 100,
     y: p.y ?? 100,
     wires: p.wires ?? [],
-    name: p.name,
-    z: p.z,
+    ...(p.name !== undefined ? { name: p.name } : {}),
+    ...(p.z !== undefined ? { z: p.z } : {}),
     extras: p.extras ?? {},
   };
 }

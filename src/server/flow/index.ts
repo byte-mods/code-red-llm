@@ -6,3 +6,4 @@
  */
 export { validateFlow, type FlowIssue, type FlowValidationResult } from './validator.js';
 export { handleValidate } from './routes.js';
+export { validateWireTypes, type WireTypeIssue, type WireTypeValidationResult } from './wiretypes.js';

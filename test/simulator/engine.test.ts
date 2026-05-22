@@ -8,8 +8,6 @@ import type { SimNode } from '../../src/server/simulator/types.js';
 
 function makeNode(p: Partial<SimNode> & { id: string; type: string }): SimNode {
   return {
-    id: p.id,
-    type: p.type,
     wires: p.wires ?? [],
     ...p,
   };

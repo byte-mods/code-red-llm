@@ -8,12 +8,23 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { buildPrompt, SENTINEL_OPEN, SENTINEL_CLOSE } from '../../src/server/prompt/index.js';
+import {
+  buildPrompt,
+  SENTINEL_OPEN,
+  SENTINEL_CLOSE,
+  SENTINEL_SCHEMA_OPEN,
+  SENTINEL_SCHEMA_CLOSE,
+} from '../../src/server/prompt/index.js';
 
 describe('buildPrompt — sentinel contract', () => {
   it('test_buildPrompt_uses_angle_bracket_sentinels', () => {
     expect(SENTINEL_OPEN).toBe('<NODE>');
     expect(SENTINEL_CLOSE).toBe('</NODE>');
+  });
+
+  it('test_buildPrompt_uses_angle_bracket_schema_sentinels', () => {
+    expect(SENTINEL_SCHEMA_OPEN).toBe('<SCHEMA>');
+    expect(SENTINEL_SCHEMA_CLOSE).toBe('</SCHEMA>');
   });
 
   it('test_buildPrompt_instructs_model_on_sentinel_format', () => {
@@ -23,6 +34,25 @@ describe('buildPrompt — sentinel contract', () => {
     // The literal sentinel pair should appear adjacent at least once
     // (the format instruction line "<NODE>{ ... }</NODE>").
     expect(out).toMatch(new RegExp(`${SENTINEL_OPEN}\\{ \\.\\.\\. \\}${SENTINEL_CLOSE}`));
+  });
+
+  it('test_buildPrompt_instructs_model_on_schema_sentinel_format', () => {
+    const out = buildPrompt('build a flow');
+    expect(out).toContain(SENTINEL_SCHEMA_OPEN);
+    expect(out).toContain(SENTINEL_SCHEMA_CLOSE);
+  });
+
+  it('test_buildPrompt_instructs_model_to_insert_schema_nodes_for_typed_flows', () => {
+    const out = buildPrompt('build a flow');
+    expect(out).toContain('insert a `schema`');
+    expect(out).toContain('node between them');
+    expect(out).toContain('schema node\'s `definition` MUST match');
+  });
+
+  it('test_buildPrompt_schema_example_includes_inline_validator_node', () => {
+    const out = buildPrompt('build a flow');
+    expect(out).toContain('"type":"schema"');
+    expect(out).toContain('"definition"');
   });
 
   it('test_buildPrompt_lists_every_required_field', () => {

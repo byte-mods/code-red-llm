@@ -28,6 +28,8 @@
 export const SENTINEL_OPEN = '<NODE>';
 /** Close sentinel. Imported by the extractor — single source of truth. */
 export const SENTINEL_CLOSE = '</NODE>';
+export const SENTINEL_SCHEMA_OPEN = '<SCHEMA>';
+export const SENTINEL_SCHEMA_CLOSE = '</SCHEMA>';
 
 /** Optional knobs. All have stable defaults so callers can omit `opts`. */
 export interface PromptOptions {
@@ -77,11 +79,28 @@ export function buildPrompt(userRequest: string, opts: PromptOptions = {}): stri
     '  - You MAY include short prose between sentinel blocks explaining the flow.',
     `  - Do NOT emit the literal text "${SENTINEL_OPEN}" or "${SENTINEL_CLOSE}" anywhere`,
     '    outside an actual node block.',
+    '  - For nodes that produce structured output (database result, Kafka record,',
+    '    HTTP response, etc.), emit a schema definition:',
+    `    ${SENTINEL_SCHEMA_OPEN}{"nodeId":"<id>","fields":{"field":"type",...}}${SENTINEL_SCHEMA_CLOSE}`,
+    '  - The nodeId inside a schema block MUST match the id of the node it describes.',
+    '  - When structured output flows into a downstream node, insert a `schema`',
+    '    node between them. The schema node\'s `definition` MUST match the fields',
+    '    from the producer\'s schema block. Example: if the producer schema is',
+    '    {"topic":"string","payload":"object"}, the schema node config should be',
+    '    {definition:\'{"topic":"string","payload":"object"}\', target:"payload"}.',
+    '  - Use `schema` nodes liberally for database, message-bus, and API flows.',
+    `  - Do NOT emit the literal text "${SENTINEL_SCHEMA_OPEN}" or "${SENTINEL_SCHEMA_CLOSE}" outside a schema block.`,
     '',
     'Worked example — a single inject → debug flow:',
     '',
     `  ${SENTINEL_OPEN}{"id":"n1","type":"inject","z":"${flowId}","name":"every 30s","props":[{"p":"payload"}],"repeat":"30","x":120,"y":100,"wires":[["n2"]]}${SENTINEL_CLOSE}`,
     `  ${SENTINEL_OPEN}{"id":"n2","type":"debug","z":"${flowId}","name":"log","active":true,"x":320,"y":100,"wires":[]}${SENTINEL_CLOSE}`,
+    '',
+    'Schema example — a kafka-consumer with typed output and an inline validator:',
+    `  ${SENTINEL_SCHEMA_OPEN}{"nodeId":"n3","fields":{"topic":"string","payload":"object"}}${SENTINEL_SCHEMA_CLOSE}`,
+    `  ${SENTINEL_OPEN}{"id":"n3","type":"kafka-consumer","z":"${flowId}","name":"orders","x":120,"y":100,"wires":[["n4"]],"brokers":"host:9092","clientId":"c1","groupId":"g1","topic":"orders"}${SENTINEL_CLOSE}`,
+    `  ${SENTINEL_OPEN}{"id":"n4","type":"schema","z":"${flowId}","name":"validate-order","x":320,"y":100,"wires":[["n5"]],"definition":"{\\"topic\\":\\"string\\",\\"payload\\":\\"object\\"}","target":"payload","strict":false}${SENTINEL_CLOSE}`,
+    `  ${SENTINEL_OPEN}{"id":"n5","type":"debug","z":"${flowId}","name":"log","active":true,"x":520,"y":100,"wires":[]}${SENTINEL_CLOSE}`,
     '',
     'Available custom node types (each registered by the no_code_red plugin —',
     'use these instead of guessing at community module names):',

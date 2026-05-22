@@ -1,0 +1,50 @@
+<script type="text/javascript">
+  RED.nodes.registerType('feed-sim', {
+    category: 'input',
+    color: '#e8d4a0',
+    defaults: {
+      name: { value: '' },
+      schema: { value: '{"id":"string","value":"number"}', required: true },
+      interval: { value: 1000, required: true, validate: RED.validators.number() },
+      count: { value: 0, required: true, validate: RED.validators.number() },
+      topic: { value: '' },
+    },
+    inputs: 0,
+    outputs: 1,
+    icon: 'inject.svg',
+    label: function () {
+      return this.name || 'feed-sim';
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="feed-sim">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-schema">Schema</label>
+    <input type="text" id="node-input-schema" placeholder='{"field":"type"}' />
+  </div>
+  <div class="form-row">
+    <label for="node-input-interval">Interval (ms)</label>
+    <input type="number" id="node-input-interval" placeholder="1000" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-count">Max Count (0=∞)</label>
+    <input type="number" id="node-input-count" placeholder="0" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-topic">Topic</label>
+    <input type="text" id="node-input-topic" placeholder="" />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="feed-sim">
+  <p>Generate synthetic events for testing.</p>
+  <p><b>Schema</b> is a JSON object mapping field names to type tags
+  (string, number, integer, boolean, object, array, null).</p>
+  <p>Emits one msg every <b>Interval</b> milliseconds until <b>Max Count</b>
+  is reached (0 = infinite).</p>
+</script>

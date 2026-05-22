@@ -1,0 +1,38 @@
+<script type="text/javascript">
+  RED.nodes.registerType('liveview', {
+    category: 'function',
+    color: '#e8d4a0',
+    defaults: {
+      name: { value: '' },
+      viewName: { value: 'default', required: true },
+      keyField: { value: '' },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'db.svg',
+    label: function () {
+      return this.name || 'liveview';
+    },
+  });
+</script>
+
+<script type="text/html" data-template-name="liveview">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-viewName">View Name</label>
+    <input type="text" id="node-input-viewName" placeholder="default" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-keyField">Key Field</label>
+    <input type="text" id="node-input-keyField" placeholder="optional upsert key" />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="liveview">
+  <p>Materialize incoming messages into a queryable view.</p>
+  <p>If <b>Key Field</b> is set, messages upsert by that key (most recent wins).</p>
+  <p>Query the view via <code>GET /no-code-red/liveview/&lt;viewName&gt;</code>.</p>
+</script>

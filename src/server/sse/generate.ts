@@ -181,6 +181,9 @@ export async function handleGenerate(
       if (r.kind === 'node') {
         sse.event('node', r.node);
         void history?.record('node', r.node);
+      } else if (r.kind === 'schema') {
+        sse.event('schema', r.schema);
+        void history?.record('schema', r.schema);
       } else {
         const err = { reason: r.reason, detail: r.detail };
         sse.event('error', err);
